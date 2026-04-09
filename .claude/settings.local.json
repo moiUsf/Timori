@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(python -c ':*)",
+      "Bash(node -e \"const xl=require\\('xlsx'\\);const wb=xl.readFile\\('C:/Users/youss/Desktop/New/SAPBeratung/TimeManagement_Local/0326/Server/2603_YEL_Hauptbericht.xls'\\);console.log\\('Sheets:',wb.SheetNames\\);wb.SheetNames.forEach\\(n=>{const s=wb.Sheets[n];const d=xl.utils.sheet_to_json\\(s,{header:1,defval:''}\\);console.log\\('\\\\\\\\n=== Sheet:',n,'==='\\);d.slice\\(0,15\\).forEach\\(\\(r,i\\)=>{ if\\(r.some\\(c=>c!=''\\)\\)console.log\\(i+1,r.map\\(c=>String\\(c\\).substring\\(0,20\\)\\).join\\(' | '\\)\\) }\\)}\\)\")",
+      "Bash(where node:*)",
+      "Bash(where python:*)",
+      "Bash(where python3:*)",
+      "Bash(where py:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(grep -v '^.$')",
+      "Bash(grep -v '^..$')",
+      "Bash(grep -E '[A-Za-z]{3,}')",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:/c/Users/youss/AppData/Roaming/npm:$PATH\")",
+      "Bash(npm --version)"
+    ]
+  }
+}
