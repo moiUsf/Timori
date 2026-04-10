@@ -14,7 +14,12 @@
       "Bash(grep -E '[A-Za-z]{3,}')",
       "Bash(npx create-next-app@latest:*)",
       "Bash(export PATH=\"/c/Program Files/nodejs:/c/Users/youss/AppData/Roaming/npm:$PATH\")",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:3000 -o /dev/null -w \"%{http_code}\")",
+      "Bash(git remote:*)",
+      "Bash(git add:*)"
     ]
   }
 }
