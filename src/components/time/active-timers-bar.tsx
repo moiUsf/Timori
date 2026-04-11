@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Play, Pause, Square, Plus } from "lucide-react"
+import { Play, Pause, Square, Plus, Pencil } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { ActiveTimer, Client, Project } from "@/types/database"
 import { formatDuration } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { StartTimerDialog } from "./start-timer-dialog"
+import { EditTimerDialog } from "./edit-timer-dialog"
 import { toast } from "sonner"
 
 interface TimerWithRelations extends ActiveTimer {
@@ -24,6 +25,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   const [timers, setTimers] = useState<TimerWithRelations[]>([])
   const [now, setNow] = useState(Date.now())
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingTimer, setEditingTimer] = useState<TimerWithRelations | null>(null)
 
   // Tick every second
   useEffect(() => {
@@ -129,6 +131,14 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
           onOpenChange={setDialogOpen}
           onCreated={loadTimers}
         />
+        {editingTimer && (
+          <EditTimerDialog
+            timer={editingTimer}
+            open={!!editingTimer}
+            onOpenChange={open => { if (!open) setEditingTimer(null) }}
+            onSaved={loadTimers}
+          />
+        )}
       </div>
     )
   }
@@ -141,27 +151,37 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
         return (
           <div
             key={timer.id}
-            className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 shrink-0"
+            className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 shrink-0"
           >
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
-                <Badge variant="outline" className="text-xs px-1 py-0 h-4">
-                  {timer.code}
-                </Badge>
-                <span className="text-xs font-medium truncate max-w-[120px]">
-                  {timer.client?.name}
+            {/* Clickable info section → edit dialog */}
+            <button
+              type="button"
+              className="flex items-center gap-2 min-w-0 text-left hover:opacity-75 transition-opacity group"
+              onClick={() => setEditingTimer(timer)}
+              title="Timer bearbeiten"
+            >
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="outline" className="text-xs px-1 py-0 h-4">
+                    {timer.code}
+                  </Badge>
+                  <span className="text-xs font-medium truncate max-w-[120px]">
+                    {timer.client?.name}
+                  </span>
+                </div>
+                <span className="text-xs text-muted-foreground truncate max-w-[160px]">
+                  {timer.project?.name ?? <span className="italic">Kein Projekt</span>}
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground truncate max-w-[160px]">
-                {timer.project?.name}
+              <span
+                className={`font-mono text-sm font-semibold tabular-nums ${isPaused ? "text-muted-foreground" : "text-foreground"}`}
+              >
+                {formatDuration(elapsed)}
               </span>
-            </div>
-            <span
-              className={`font-mono text-sm font-semibold tabular-nums ${isPaused ? "text-muted-foreground" : "text-foreground"}`}
-            >
-              {formatDuration(elapsed)}
-            </span>
-            <div className="flex items-center gap-1">
+              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            </button>
+            {/* Controls */}
+            <div className="flex items-center gap-1 ml-1">
               <Button
                 variant="ghost"
                 size="icon"
@@ -194,6 +214,14 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
         onOpenChange={setDialogOpen}
         onCreated={loadTimers}
       />
+      {editingTimer && (
+        <EditTimerDialog
+          timer={editingTimer}
+          open={!!editingTimer}
+          onOpenChange={open => { if (!open) setEditingTimer(null) }}
+          onSaved={loadTimers}
+        />
+      )}
     </div>
   )
 }

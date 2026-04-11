@@ -56,6 +56,7 @@ export interface PreviewRow {
   tagesNetto: number
   vonDirty: boolean
   bisDirty: boolean
+  pauseDirty: boolean
   isWeekend: boolean
 }
 
@@ -134,17 +135,23 @@ export function buildPreviewRows(
     if (dayEntries.length === 0) {
       rows.push({ id: "", date: dateStr, weekday, dayLabel, von: "", bis: "",
         originalVon: "", originalBis: "", taetigkeit: "", break_min: 0,
-        brutto: 0, netto: 0, tagesNetto: 0, vonDirty: false, bisDirty: false, isWeekend })
+        brutto: 0, netto: 0, tagesNetto: 0, vonDirty: false, bisDirty: false, pauseDirty: false, isWeekend })
     } else {
-      const tagesNetto = dayEntries.reduce((s, e) => s + e.net_h, 0)
-      for (const e of dayEntries) {
+      // Compute brutto/netto from time fields (not stale DB gross_h/net_h)
+      const dayCalc = dayEntries.map(e => {
         const von = e.time_from.slice(0, 5)
         const bis = e.time_to.slice(0, 5)
+        const brutto = calcBrutto(von, bis)
+        const netto = Math.round(Math.max(0, brutto - e.break_min / 60) * 10) / 10
+        return { e, von, bis, brutto, netto }
+      })
+      const tagesNetto = Math.round(dayCalc.reduce((s, c) => s + c.netto, 0) * 10) / 10
+      for (const { e, von, bis, brutto, netto } of dayCalc) {
         rows.push({ id: e.id, date: dateStr, weekday, dayLabel, von, bis,
           originalVon: von, originalBis: bis,
           taetigkeit: buildTaetigkeitText(e, fields),
-          break_min: e.break_min, brutto: e.gross_h, netto: e.net_h, tagesNetto,
-          vonDirty: false, bisDirty: false, isWeekend })
+          break_min: e.break_min, brutto, netto, tagesNetto,
+          vonDirty: false, bisDirty: false, pauseDirty: false, isWeekend })
       }
     }
   }

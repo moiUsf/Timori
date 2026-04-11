@@ -56,6 +56,10 @@ export default function TimePage() {
   const [overlapConflicts, setOverlapConflicts] = useState<EntryWithRelations[]>([])
   const [showOverlapDialog, setShowOverlapDialog] = useState(false)
   const [reportDialogOpen, setReportDialogOpen] = useState(false)
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState("")
+  const [creatingTask, setCreatingTask] = useState(false)
+  const [newTaskName, setNewTaskName] = useState("")
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
@@ -100,34 +104,36 @@ export default function TimePage() {
     })
   }, [form.client_id, supabase, userId])
 
+  // Returns task data without touching state — lets callers batch setTasks + setForm together
+  const fetchTasksData = useCallback(async (clientId: string, projectId: string): Promise<TaskWithBooking[]> => {
+    if (!userId) return []
+    const noProjectBase = supabase.from("tasks")
+      .select("*, default_booking_item:booking_items(id,name)")
+      .eq("user_id", userId).is("project_id", null).eq("active", true).order("name")
+
+    const noProjectRes = clientId
+      ? await noProjectBase.or(`client_id.eq.${clientId},client_id.is.null`)
+      : await noProjectBase
+
+    if (!projectId) return (noProjectRes.data ?? []) as TaskWithBooking[]
+
+    const projRes = await supabase.from("tasks")
+      .select("*, default_booking_item:booking_items(id,name)")
+      .eq("project_id", projectId).eq("active", true).order("name")
+
+    const combined = [...(projRes.data ?? []), ...(noProjectRes.data ?? [])] as TaskWithBooking[]
+    combined.sort((a: Task, b: Task) => a.name.localeCompare(b.name))
+    return combined
+  }, [userId, supabase])
+
+  const loadTasks = useCallback(async (clientId: string, projectId: string) => {
+    setTasks(await fetchTasksData(clientId, projectId))
+  }, [fetchTasksData])
+
   useEffect(() => {
     if (!userId) return
-
-    async function loadTasks() {
-      const noProjectBase = supabase.from("tasks")
-        .select("*, default_booking_item:booking_items(id,name)")
-        .eq("user_id", userId).is("project_id", null).eq("active", true).order("name")
-
-      const noProjectRes = form.client_id
-        ? await noProjectBase.or(`client_id.eq.${form.client_id},client_id.is.null`)
-        : await noProjectBase
-
-      if (!form.project_id) {
-        setTasks((noProjectRes.data ?? []) as TaskWithBooking[])
-        return
-      }
-
-      const projRes = await supabase.from("tasks")
-        .select("*, default_booking_item:booking_items(id,name)")
-        .eq("project_id", form.project_id).eq("active", true).order("name")
-
-      const combined = [...(projRes.data ?? []), ...(noProjectRes.data ?? [])] as TaskWithBooking[]
-      combined.sort((a, b) => a.name.localeCompare(b.name))
-      setTasks(combined)
-    }
-
-    loadTasks()
-  }, [form.project_id, form.client_id, supabase, userId])
+    loadTasks(form.client_id, form.project_id)
+  }, [form.project_id, form.client_id, userId, loadTasks])
 
   function openNew() {
     setEditingEntry(null)
@@ -135,6 +141,10 @@ export default function TimePage() {
     setBookingItemAutoSet(false)
     setProjectSearch("")
     setTaskSearch("")
+    setCreatingProject(false)
+    setCreatingTask(false)
+    setNewProjectName("")
+    setNewTaskName("")
     setShowForm(true)
   }
 
@@ -156,7 +166,53 @@ export default function TimePage() {
     setBookingItemAutoSet(false)
     setProjectSearch("")
     setTaskSearch("")
+    setCreatingProject(false)
+    setCreatingTask(false)
+    setNewProjectName("")
+    setNewTaskName("")
     setShowForm(true)
+  }
+
+  async function handleCreateProject() {
+    if (!newProjectName.trim() || !form.client_id || !userId) return
+    const { data, error } = await supabase.from("projects").insert({
+      user_id: userId,
+      client_id: form.client_id,
+      name: newProjectName.trim(),
+      active: true,
+    }).select().single()
+    if (error) { toast.error("Fehler: " + error.message); return }
+    // Fetch fresh list first, then set both in the same sync block so React
+    // batches them into one render — Select finds the new item immediately.
+    const freshProjects = await supabase.from("projects").select("*")
+      .eq("client_id", form.client_id).eq("active", true).order("name")
+    setProjects(freshProjects.data ?? [])
+    setForm(f => ({ ...f, project_id: data.id, task_id: "" }))
+    setCreatingProject(false)
+    setNewProjectName("")
+    toast.success("Projekt erstellt")
+  }
+
+  async function handleCreateTask() {
+    if (!newTaskName.trim() || !userId) return
+    const clientId = form.client_id
+    const projectId = form.project_id
+    const { data, error } = await supabase.from("tasks").insert({
+      user_id: userId,
+      name: newTaskName.trim(),
+      project_id: projectId || null,
+      client_id: projectId ? null : (clientId || null),
+      active: true,
+    }).select().single()
+    if (error) { toast.error("Fehler: " + error.message); return }
+    // Fetch fresh list first, then set both in the same sync block so React
+    // batches them into one render — Select finds the new item immediately.
+    const freshTasks = await fetchTasksData(clientId, projectId)
+    setTasks(freshTasks)
+    setForm(f => ({ ...f, task_id: data.id }))
+    setCreatingTask(false)
+    setNewTaskName("")
+    toast.success("Aufgabe erstellt")
   }
 
   function handleTaskSelect(value: string) {
@@ -342,10 +398,17 @@ export default function TimePage() {
                 <Label>{t("project")}</Label>
                 <Select value={form.project_id || "_none"}
                   onValueChange={(v) => {
+                    if (v === "_create_project") {
+                      setCreatingProject(true)
+                      setNewProjectName("")
+                      setProjectSearch("")
+                      return
+                    }
                     setForm({ ...form, project_id: v === "_none" ? "" : v, task_id: "" })
                     setBookingItemAutoSet(false)
                     setProjectSearch("")
                     setTaskSearch("")
+                    setCreatingProject(false)
                   }}
                   disabled={!form.client_id}>
                   <SelectTrigger><SelectValue placeholder={t("projectPlaceholder")} /></SelectTrigger>
@@ -364,13 +427,53 @@ export default function TimePage() {
                     {filteredProjects.length === 0 && projectSearch && (
                       <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
                     )}
+                    <div className="border-t mt-1 pt-1">
+                      <SelectItem value="_create_project" className="text-primary font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Plus className="h-3.5 w-3.5" />Neues Projekt erstellen
+                        </span>
+                      </SelectItem>
+                    </div>
                   </SelectContent>
                 </Select>
+                {creatingProject && (
+                  <div className="flex gap-1.5">
+                    <Input
+                      autoFocus
+                      placeholder="Projektname..."
+                      value={newProjectName}
+                      onChange={e => setNewProjectName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { e.preventDefault(); handleCreateProject() }
+                        if (e.key === "Escape") setCreatingProject(false)
+                      }}
+                      className="h-8 text-sm"
+                    />
+                    <Button type="button" size="sm" onClick={handleCreateProject}
+                      disabled={!newProjectName.trim()} className="h-8 px-2 shrink-0">
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost"
+                      onClick={() => setCreatingProject(false)} className="h-8 px-2 shrink-0 text-muted-foreground">
+                      ✕
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>{t("task")}</Label>
-                <Select value={form.task_id || "_none"} onValueChange={handleTaskSelect}>
+                <Select value={form.task_id || "_none"}
+                  onValueChange={(v) => {
+                    if (v === "_create_task") {
+                      setCreatingTask(true)
+                      setNewTaskName("")
+                      setTaskSearch("")
+                      return
+                    }
+                    handleTaskSelect(v)
+                    setCreatingTask(false)
+                  }}>
                   <SelectTrigger><SelectValue placeholder={t("taskPlaceholder")} /></SelectTrigger>
                   <SelectContent>
                     <div className="p-2 border-b">
@@ -383,12 +486,42 @@ export default function TimePage() {
                       />
                     </div>
                     <SelectItem value="_none">{t("noTask")}</SelectItem>
-                    {filteredTasks.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    {filteredTasks.map((task) => <SelectItem key={task.id} value={task.id}>{task.name}</SelectItem>)}
                     {filteredTasks.length === 0 && taskSearch && (
                       <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
                     )}
+                    <div className="border-t mt-1 pt-1">
+                      <SelectItem value="_create_task" className="text-primary font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen
+                        </span>
+                      </SelectItem>
+                    </div>
                   </SelectContent>
                 </Select>
+                {creatingTask && (
+                  <div className="flex gap-1.5">
+                    <Input
+                      autoFocus
+                      placeholder="Aufgabenname..."
+                      value={newTaskName}
+                      onChange={e => setNewTaskName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { e.preventDefault(); handleCreateTask() }
+                        if (e.key === "Escape") setCreatingTask(false)
+                      }}
+                      className="h-8 text-sm"
+                    />
+                    <Button type="button" size="sm" onClick={handleCreateTask}
+                      disabled={!newTaskName.trim()} className="h-8 px-2 shrink-0">
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost"
+                      onClick={() => setCreatingTask(false)} className="h-8 px-2 shrink-0 text-muted-foreground">
+                      ✕
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2 col-span-2">

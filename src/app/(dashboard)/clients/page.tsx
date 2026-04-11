@@ -34,6 +34,8 @@ export default function ClientsPage() {
   const [flatProjects, setFlatProjects] = useState<Project[]>([])
   const [taskSearch, setTaskSearch] = useState("")
   const [projectSearch, setProjectSearch] = useState("")
+  const [clientSearch, setClientSearch] = useState("")
+  const [bookingSearch, setBookingSearch] = useState("")
 
   // Dialogs
   const [clientDialog, setClientDialog] = useState(false)
@@ -134,7 +136,10 @@ export default function ClientsPage() {
       filterClientId === "_all" ? true :
       filterClientId === "_none" ? !b.client_id :
       b.client_id === filterClientId
-    return matchesClient
+    const matchesSearch = bookingSearch.trim() === "" ||
+      b.name.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+      (b.description ?? "").toLowerCase().includes(bookingSearch.toLowerCase())
+    return matchesClient && matchesSearch
   })
 
   // Booking items filtered for task dialog (by client derived from project or direct client)
@@ -245,6 +250,15 @@ export default function ClientsPage() {
     loadAllBookings(userId)
   }
 
+  async function deleteProject(id: string, clientId: string) {
+    const { error } = await supabase.from("projects").delete().eq("id", id)
+    if (error) { toast.error("Fehler: " + error.message); return }
+    toast.success("Projekt gelöscht")
+    setExpandedProjects((prev) => { const n = new Set(prev); n.delete(id); return n })
+    loadProjects(clientId)
+    loadFlatProjects(userId)
+  }
+
   function openEditTask(t: Task) {
     setEditingTask(t)
     setTaskForm({
@@ -292,20 +306,28 @@ export default function ClientsPage() {
 
         {/* ── Tab 1: Clients & Projects ── */}
         <TabsContent value="clients" className="space-y-3 mt-4">
-          {/* Project search */}
-          <div className="flex items-center gap-2">
+          {/* Search bar row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Input
+              placeholder="Kunden suchen..."
+              value={clientSearch}
+              onChange={e => setClientSearch(e.target.value)}
+              className="max-w-[200px]"
+            />
             <Input
               placeholder="Projekte suchen..."
               value={projectSearch}
               onChange={e => setProjectSearch(e.target.value)}
-              className="max-w-sm"
+              className="max-w-[200px]"
             />
-            {projectSearch && (
-              <Button variant="ghost" size="sm" onClick={() => setProjectSearch("")}>Zurücksetzen</Button>
+            {(clientSearch || projectSearch) && (
+              <Button variant="ghost" size="sm" onClick={() => { setClientSearch(""); setProjectSearch("") }}>
+                Zurücksetzen
+              </Button>
             )}
           </div>
 
-          {/* Flat search results */}
+          {/* Flat project search results */}
           {searchedProjects !== null ? (
             <Card>
               <div className="divide-y">
@@ -313,8 +335,9 @@ export default function ClientsPage() {
                   <p className="px-4 py-4 text-sm text-muted-foreground">Keine Projekte gefunden</p>
                 ) : searchedProjects.map((p) => {
                   const clientName = (p as Project & { client?: { name: string } }).client?.name
+                  const clientId = (p as Project & { client_id?: string }).client_id ?? ""
                   return (
-                    <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                    <div key={p.id} className="flex items-center gap-3 px-4 py-3 group">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{p.name}</span>
@@ -322,15 +345,34 @@ export default function ClientsPage() {
                         </div>
                         {clientName && <p className="text-xs text-muted-foreground">👤 {clientName}</p>}
                       </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => {
+                            setSelectedClientId(clientId)
+                            setEditingProject(p)
+                            setProjectForm({ name: p.name, project_nr: p.project_nr ?? "", sub_project: p.sub_project ?? "", category: p.category ?? "", hourly_rate: p.hourly_rate?.toString() ?? "" })
+                            setProjectDialog(true)
+                          }}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteProject(p.id, clientId)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   )
                 })}
               </div>
             </Card>
           ) : (
-            /* Normal accordion */
+            /* Normal accordion — filtered by clientSearch */
             <>
-              {clients.map((client) => (
+              {clients.filter(c =>
+                clientSearch.trim() === "" ||
+                c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                (c.client_nr ?? "").toLowerCase().includes(clientSearch.toLowerCase())
+              ).map((client) => (
                 <Card key={client.id}>
                   <div className="flex items-center gap-3 p-4 cursor-pointer select-none" onClick={() => toggleClient(client.id)}>
                     {expanded.has(client.id)
@@ -456,6 +498,10 @@ export default function ClientsPage() {
                                   }}>
                                   <Pencil className="h-3.5 w-3.5" />
                                 </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => deleteProject(p.id, client.id)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             </div>
 
@@ -523,8 +569,14 @@ export default function ClientsPage() {
                   )}
                 </Card>
               ))}
-              {clients.length === 0 && (
-                <p className="text-center text-muted-foreground py-8 text-sm">Noch keine Kunden.</p>
+              {clients.filter(c =>
+                clientSearch.trim() === "" ||
+                c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                (c.client_nr ?? "").toLowerCase().includes(clientSearch.toLowerCase())
+              ).length === 0 && (
+                <p className="text-center text-muted-foreground py-8 text-sm">
+                  {clientSearch.trim() ? "Kein Kunde gefunden." : "Noch keine Kunden."}
+                </p>
               )}
             </>
           )}
@@ -606,9 +658,10 @@ export default function ClientsPage() {
 
             {/* Booking items */}
             <Card>
-              <div className="p-4 border-b flex items-center justify-between">
-                <h3 className="font-medium text-sm">Buchungsposten</h3>
-                <Button size="sm" variant="outline" className="gap-1.5"
+              <div className="p-4 border-b space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-sm">Buchungsposten</h3>
+                  <Button size="sm" variant="outline" className="gap-1.5"
                   onClick={() => {
                     setBookingForm({
                       name: "",
@@ -619,6 +672,13 @@ export default function ClientsPage() {
                   }}>
                   <Plus className="h-3.5 w-3.5" />Hinzufügen
                 </Button>
+                </div>
+                <Input
+                  placeholder="Buchungsposten suchen..."
+                  value={bookingSearch}
+                  onChange={e => setBookingSearch(e.target.value)}
+                  className="h-8 text-sm"
+                />
               </div>
               <div className="divide-y max-h-96 overflow-y-auto">
                 {filteredBookings.length === 0

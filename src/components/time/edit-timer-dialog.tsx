@@ -2,18 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { Client, Project, Task, HourCode } from "@/types/database"
+import type { ActiveTimer, Client, Project, Task, HourCode } from "@/types/database"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Play } from "lucide-react"
+import { Save } from "lucide-react"
 
 const HOUR_CODES: { value: HourCode; label: string }[] = [
   { value: "BEV", label: "BEV — Beratung verrechenbar" },
@@ -22,55 +20,68 @@ const HOUR_CODES: { value: HourCode; label: string }[] = [
   { value: "RZNV", label: "RZNV — Reisezeit nicht verrechenbar" },
 ]
 
-interface StartTimerDialogProps {
-  userId: string
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onCreated: () => void
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: StartTimerDialogProps) {
+interface EditTimerDialogProps {
+  timer: ActiveTimer & { client?: Client; project?: Project }
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSaved: () => void
+}
+
+export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTimerDialogProps) {
   const supabase = createClient()
-  const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [bookingItems, setBookingItems] = useState<{ id: string; name: string }[]>([])
-  const [clientId, setClientId] = useState("")
+
   const [projectId, setProjectId] = useState("")
   const [taskId, setTaskId] = useState("")
   const [code, setCode] = useState<HourCode>("BEV")
   const [description, setDescription] = useState("")
   const [bookingItemText, setBookingItemText] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [startedAt, setStartedAt] = useState("")
+  const [saving, setSaving] = useState(false)
 
+  // Re-init fields whenever this dialog opens (handles switching between timers)
   useEffect(() => {
-    supabase.from("clients").select("*").eq("user_id", userId).eq("active", true).order("name")
-      .then(({ data }) => setClients(data ?? []))
-  }, [supabase, userId])
+    if (!open) return
+    setProjectId(timer.project_id || "")
+    setTaskId(timer.task_id || "")
+    setCode(timer.code)
+    setDescription(timer.description || "")
+    setBookingItemText(timer.booking_item_text || "")
+    setStartedAt(toDatetimeLocal(timer.started_at))
+  }, [open, timer.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load projects + booking items for client
   useEffect(() => {
-    if (!clientId) { setProjects([]); setBookingItems([]); return }
+    if (!open || !timer.client_id) return
     Promise.all([
-      supabase.from("projects").select("*").eq("client_id", clientId).eq("active", true).order("name"),
+      supabase.from("projects").select("*").eq("client_id", timer.client_id).eq("active", true).order("name"),
       supabase.from("booking_items").select("id, name")
-        .eq("user_id", userId)
-        .or(`client_id.eq.${clientId},client_id.is.null`)
+        .eq("user_id", timer.user_id)
+        .or(`client_id.eq.${timer.client_id},client_id.is.null`)
         .eq("active", true).order("name"),
     ]).then(([pRes, bRes]) => {
       setProjects(pRes.data ?? [])
       setBookingItems(bRes.data ?? [])
     })
-  }, [clientId, supabase, userId])
+  }, [open, timer.client_id, timer.user_id, supabase])
 
+  // Load tasks when project changes
   useEffect(() => {
-    if (!userId) return
-
+    if (!open) return
     async function loadTasks() {
       const noProjectBase = supabase.from("tasks")
-        .select("*").eq("user_id", userId).is("project_id", null).eq("active", true).order("name")
+        .select("*").eq("user_id", timer.user_id).is("project_id", null).eq("active", true).order("name")
 
-      const noProjectRes = clientId
-        ? await noProjectBase.or(`client_id.eq.${clientId},client_id.is.null`)
+      const noProjectRes = timer.client_id
+        ? await noProjectBase.or(`client_id.eq.${timer.client_id},client_id.is.null`)
         : await noProjectBase
 
       if (!projectId) {
@@ -85,88 +96,77 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
       combined.sort((a: Task, b: Task) => a.name.localeCompare(b.name))
       setTasks(combined)
     }
-
     loadTasks()
-  }, [projectId, clientId, supabase, userId])
+  }, [open, projectId, timer.client_id, timer.user_id, supabase])
 
-  async function handleStart() {
-    if (!clientId) { toast.error("Bitte Kunde auswählen"); return }
-    setLoading(true)
-    const { error } = await supabase.from("active_timers").insert({
-      user_id: userId,
-      client_id: clientId,
+  async function handleSave() {
+    setSaving(true)
+    const { error } = await supabase.from("active_timers").update({
       project_id: projectId || null,
+      task_id: taskId || null,
       code,
       description,
-      task_id: taskId || null,
       booking_item_text: bookingItemText,
-      started_at: new Date().toISOString(),
-      paused_at: null,
-      total_paused_ms: 0,
-    })
+      started_at: new Date(startedAt).toISOString(),
+    }).eq("id", timer.id)
+
     if (error) {
       toast.error("Fehler: " + error.message)
     } else {
-      toast.success("Timer gestartet")
-      onCreated()
+      toast.success("Timer aktualisiert")
+      onSaved()
       onOpenChange(false)
-      setClientId(""); setProjectId(""); setTaskId(""); setDescription(""); setBookingItemText("")
     }
-    setLoading(false)
+    setSaving(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Neuen Timer starten</DialogTitle>
+          <DialogTitle>Timer bearbeiten — {timer.client?.name}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2">
-          <div className="space-y-2">
-            <Label>Kunde</Label>
-            <Select value={clientId} onValueChange={(v) => { setClientId(v); setProjectId(""); setTaskId("") }}>
-              <SelectTrigger><SelectValue placeholder="Kunde wählen..." /></SelectTrigger>
-              <SelectContent>
-                {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
 
+          {/* Project */}
           <div className="space-y-2">
             <Label>Projekt</Label>
             <Select
               value={projectId || "_none"}
               onValueChange={v => { setProjectId(v === "_none" ? "" : v); setTaskId("") }}
-              disabled={!clientId}
             >
-              <SelectTrigger><SelectValue placeholder="Projekt wählen..." /></SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">— Kein Projekt —</SelectItem>
-                {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
 
+          {/* Task */}
           <div className="space-y-2">
             <Label>Aufgabe (optional)</Label>
-            <Select value={taskId || "_none"} onValueChange={(v) => setTaskId(v === "_none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="Aufgabe wählen..." /></SelectTrigger>
+            <Select value={taskId || "_none"} onValueChange={v => setTaskId(v === "_none" ? "" : v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
-                {tasks.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                {tasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
 
+          {/* Booking item */}
           <div className="space-y-2">
             <Label>Buchungsposten (optional)</Label>
             {bookingItems.length > 0 ? (
-              <Select value={bookingItemText || "_manual"}
-                onValueChange={(v) => setBookingItemText(v === "_manual" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Buchungsposten wählen..." /></SelectTrigger>
+              <Select
+                value={bookingItemText || "_manual"}
+                onValueChange={v => setBookingItemText(v === "_manual" ? "" : v)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_manual">— Manuell eingeben —</SelectItem>
-                  {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                  {bookingItems.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             ) : null}
@@ -174,33 +174,49 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
               <Input
                 placeholder="z.B. 4800061526 - Support PI/PO"
                 value={bookingItemText}
-                onChange={(e) => setBookingItemText(e.target.value)}
+                onChange={e => setBookingItemText(e.target.value)}
                 className={bookingItems.length > 0 ? "mt-1" : ""}
               />
             )}
           </div>
 
+          {/* Code */}
           <div className="space-y-2">
             <Label>Stundencode</Label>
-            <Select value={code} onValueChange={(v) => setCode(v as HourCode)}>
+            <Select value={code} onValueChange={v => setCode(v as HourCode)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {HOUR_CODES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                {HOUR_CODES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
 
+          {/* Description */}
           <div className="space-y-2">
             <Label>Beschreibung (optional)</Label>
-            <Input placeholder="Tätigkeit kurz beschreiben..."
-              value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Input
+              placeholder="Tätigkeit kurz beschreiben..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Start time */}
+          <div className="space-y-2">
+            <Label>Startzeit</Label>
+            <input
+              type="datetime-local"
+              value={startedAt}
+              onChange={e => setStartedAt(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleStart} disabled={loading} className="gap-2">
-            <Play className="h-4 w-4" />
-            {loading ? "Startet..." : "Timer starten"}
+          <Button onClick={handleSave} disabled={saving} className="gap-2">
+            <Save className="h-4 w-4" />
+            {saving ? "Speichert..." : "Speichern"}
           </Button>
         </DialogFooter>
       </DialogContent>
