@@ -12,9 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatHours, formatDate, hoursFromTimeRange } from "@/lib/utils"
-import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil } from "lucide-react"
+import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, AlertTriangle, FileText } from "lucide-react"
 import { toast } from "sonner"
+import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
 
+type TaskWithBooking = Task & { default_booking_item?: { id: string; name: string } | null }
 type EntryWithRelations = TimeEntry & { client: Client; project: Project; task?: Task }
 
 const HOUR_CODES = ["BEV", "BENV", "RZV", "RZNV"] as const
@@ -38,13 +40,19 @@ export default function TimePage() {
   const [entries, setEntries] = useState<EntryWithRelations[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [tasks, setTasks] = useState<Task[]>([])
+  const [tasks, setTasks] = useState<TaskWithBooking[]>([])
   const [bookingItems, setBookingItems] = useState<{ id: string; name: string }[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showForm, setShowForm] = useState(false)
   const [editingEntry, setEditingEntry] = useState<EntryWithRelations | null>(null)
   const [userId, setUserId] = useState<string>("")
   const [form, setForm] = useState(emptyForm())
+  const [bookingItemAutoSet, setBookingItemAutoSet] = useState(false)
+  const [projectSearch, setProjectSearch] = useState("")
+  const [taskSearch, setTaskSearch] = useState("")
+  const [overlapConflicts, setOverlapConflicts] = useState<EntryWithRelations[]>([])
+  const [showOverlapDialog, setShowOverlapDialog] = useState(false)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
@@ -75,9 +83,9 @@ export default function TimePage() {
 
   useEffect(() => { if (userId) loadEntries() }, [userId, loadEntries])
 
-  // Load projects when client changes
+  // Load projects + booking items when client changes
   useEffect(() => {
-    if (!form.client_id) { setProjects([]); setTasks([]); setBookingItems([]); return }
+    if (!form.client_id || !userId) { setProjects([]); setBookingItems([]); return }
     Promise.all([
       supabase.from("projects").select("*").eq("client_id", form.client_id).eq("active", true).order("name"),
       supabase.from("booking_items").select("id, name")
@@ -90,21 +98,43 @@ export default function TimePage() {
     })
   }, [form.client_id, supabase, userId])
 
-  // Load tasks when project changes
+  // Load tasks when project or client changes
   useEffect(() => {
-    if (!form.project_id) {
-      // Load tasks without project
-      supabase.from("tasks").select("*").eq("user_id", userId).is("project_id", null).eq("active", true).order("name")
-        .then(({ data }) => setTasks(data ?? []))
-      return
+    if (!userId) return
+
+    async function loadTasks() {
+      // Tasks without project: match client or have no client
+      const noProjectBase = supabase.from("tasks")
+        .select("*, default_booking_item:booking_items(id,name)")
+        .eq("user_id", userId).is("project_id", null).eq("active", true).order("name")
+
+      const noProjectRes = form.client_id
+        ? await noProjectBase.or(`client_id.eq.${form.client_id},client_id.is.null`)
+        : await noProjectBase
+
+      if (!form.project_id) {
+        setTasks((noProjectRes.data ?? []) as TaskWithBooking[])
+        return
+      }
+
+      const projRes = await supabase.from("tasks")
+        .select("*, default_booking_item:booking_items(id,name)")
+        .eq("project_id", form.project_id).eq("active", true).order("name")
+
+      const combined = [...(projRes.data ?? []), ...(noProjectRes.data ?? [])] as TaskWithBooking[]
+      combined.sort((a, b) => a.name.localeCompare(b.name))
+      setTasks(combined)
     }
-    supabase.from("tasks").select("*").eq("project_id", form.project_id).eq("active", true).order("name")
-      .then(({ data }) => setTasks(data ?? []))
-  }, [form.project_id, supabase, userId])
+
+    loadTasks()
+  }, [form.project_id, form.client_id, supabase, userId])
 
   function openNew() {
     setEditingEntry(null)
     setForm(emptyForm())
+    setBookingItemAutoSet(false)
+    setProjectSearch("")
+    setTaskSearch("")
     setShowForm(true)
   }
 
@@ -123,15 +153,26 @@ export default function TimePage() {
       task_id: entry.task_id ?? "",
       booking_item_text: entry.booking_item_text ?? "",
     })
+    setBookingItemAutoSet(false)
+    setProjectSearch("")
+    setTaskSearch("")
     setShowForm(true)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.client_id || !form.project_id) {
-      toast.error("Bitte Kunde und Projekt auswählen")
-      return
-    }
+  function handleTaskSelect(value: string) {
+    const taskId = value === "_none" ? "" : value
+    const selectedTask = tasks.find(t => t.id === taskId)
+    const defaultBooking = selectedTask?.default_booking_item
+    setForm(f => ({
+      ...f,
+      task_id: taskId,
+      booking_item_text: defaultBooking ? defaultBooking.name : f.booking_item_text,
+    }))
+    setBookingItemAutoSet(!!defaultBooking)
+    setTaskSearch("")
+  }
+
+  async function doSave() {
     const gross_h = hoursFromTimeRange(form.time_from, form.time_to)
     const net_h = hoursFromTimeRange(form.time_from, form.time_to, parseInt(form.break_min))
     const payload = {
@@ -140,7 +181,7 @@ export default function TimePage() {
       time_to: form.time_to,
       break_min: parseInt(form.break_min),
       client_id: form.client_id,
-      project_id: form.project_id,
+      project_id: form.project_id || null,
       code: form.code,
       description: form.description,
       remote: form.remote,
@@ -161,7 +202,40 @@ export default function TimePage() {
     }
     setShowForm(false)
     setEditingEntry(null)
+    setShowOverlapDialog(false)
     loadEntries()
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.client_id) {
+      toast.error("Bitte Kunde auswählen")
+      return
+    }
+
+    // Check for overlapping entries (same client, same date, overlapping time range)
+    let overlapQuery = supabase
+      .from("time_entries")
+      .select("*, client:clients(*), project:projects(*), task:tasks(*)")
+      .eq("user_id", userId)
+      .eq("client_id", form.client_id)
+      .eq("date", form.date)
+      .lt("time_from", form.time_to)
+      .gt("time_to", form.time_from)
+
+    if (editingEntry) {
+      overlapQuery = overlapQuery.neq("id", editingEntry.id)
+    }
+
+    const { data: conflicts } = await overlapQuery
+
+    if (conflicts && conflicts.length > 0) {
+      setOverlapConflicts(conflicts as EntryWithRelations[])
+      setShowOverlapDialog(true)
+      return
+    }
+
+    await doSave()
   }
 
   async function handleDelete(id: string) {
@@ -169,6 +243,13 @@ export default function TimePage() {
     toast.success("Eintrag gelöscht")
     loadEntries()
   }
+
+  const filteredProjects = projects.filter(p =>
+    p.name.toLowerCase().includes(projectSearch.toLowerCase())
+  )
+  const filteredTasks = tasks.filter(t =>
+    t.name.toLowerCase().includes(taskSearch.toLowerCase())
+  )
 
   const totalHours = entries.reduce((s, e) => s + e.net_h, 0)
   const monthLabel = currentDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" })
@@ -180,13 +261,18 @@ export default function TimePage() {
           <h1 className="text-2xl font-bold tracking-tight">Zeiterfassung</h1>
           <p className="text-muted-foreground">Manuelle Zeiteinträge</p>
         </div>
-        <Button onClick={openNew} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Neuer Eintrag
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setReportDialogOpen(true)} className="gap-2">
+            <FileText className="h-4 w-4" />
+            Bericht exportieren
+          </Button>
+          <Button onClick={openNew} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Neuer Eintrag
+          </Button>
+        </div>
       </div>
 
-      {/* Entry form (new + edit) */}
       {showForm && (
         <Card>
           <CardHeader>
@@ -222,7 +308,13 @@ export default function TimePage() {
               <div className="space-y-2">
                 <Label>Kunde</Label>
                 <Select value={form.client_id}
-                  onValueChange={(v) => setForm({ ...form, client_id: v, project_id: "", task_id: "" })}>
+                  onValueChange={(v) => {
+                    const selectedClient = clients.find(c => c.id === v)
+                    setForm({ ...form, client_id: v, project_id: "", task_id: "", remote: selectedClient?.default_remote ?? false })
+                    setBookingItemAutoSet(false)
+                    setProjectSearch("")
+                    setTaskSearch("")
+                  }}>
                   <SelectTrigger><SelectValue placeholder="Kunde wählen..." /></SelectTrigger>
                   <SelectContent>
                     {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -231,12 +323,30 @@ export default function TimePage() {
               </div>
               <div className="space-y-2">
                 <Label>Projekt</Label>
-                <Select value={form.project_id}
-                  onValueChange={(v) => setForm({ ...form, project_id: v, task_id: "" })}
+                <Select value={form.project_id || "_none"}
+                  onValueChange={(v) => {
+                    setForm({ ...form, project_id: v === "_none" ? "" : v, task_id: "" })
+                    setBookingItemAutoSet(false)
+                    setProjectSearch("")
+                    setTaskSearch("")
+                  }}
                   disabled={!form.client_id}>
                   <SelectTrigger><SelectValue placeholder="Projekt wählen..." /></SelectTrigger>
                   <SelectContent>
-                    {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    <div className="p-2 border-b">
+                      <Input
+                        placeholder="Suchen..."
+                        value={projectSearch}
+                        onChange={e => setProjectSearch(e.target.value)}
+                        onKeyDown={e => e.stopPropagation()}
+                        className="h-7 text-sm"
+                      />
+                    </div>
+                    <SelectItem value="_none">— Kein Projekt —</SelectItem>
+                    {filteredProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    {filteredProjects.length === 0 && projectSearch && (
+                      <p className="py-2 text-center text-xs text-muted-foreground">Keine Treffer</p>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -244,20 +354,41 @@ export default function TimePage() {
               {/* Row 3 — Aufgabe + Buchungsposten */}
               <div className="space-y-2">
                 <Label>Aufgabe (optional)</Label>
-                <Select value={form.task_id} onValueChange={(v) => setForm({ ...form, task_id: v === "_none" ? "" : v })}>
+                <Select value={form.task_id || "_none"} onValueChange={handleTaskSelect}>
                   <SelectTrigger><SelectValue placeholder="Aufgabe wählen..." /></SelectTrigger>
                   <SelectContent>
+                    <div className="p-2 border-b">
+                      <Input
+                        placeholder="Suchen..."
+                        value={taskSearch}
+                        onChange={e => setTaskSearch(e.target.value)}
+                        onKeyDown={e => e.stopPropagation()}
+                        className="h-7 text-sm"
+                      />
+                    </div>
                     <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
-                    {tasks.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    {filteredTasks.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    {filteredTasks.length === 0 && taskSearch && (
+                      <p className="py-2 text-center text-xs text-muted-foreground">Keine Treffer</p>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+
+              <div className="space-y-2 col-span-2">
                 <Label>Buchungsposten (optional)</Label>
+                {bookingItemAutoSet && (
+                  <p className="text-xs text-amber-600 font-medium">Automatisch gesetzt — bitte prüfen</p>
+                )}
                 {bookingItems.length > 0 ? (
-                  <Select value={form.booking_item_text}
-                    onValueChange={(v) => setForm({ ...form, booking_item_text: v === "_manual" ? "" : v })}>
-                    <SelectTrigger><SelectValue placeholder="Buchungsposten wählen oder eingeben..." /></SelectTrigger>
+                  <Select value={form.booking_item_text || "_manual"}
+                    onValueChange={(v) => {
+                      setForm({ ...form, booking_item_text: v === "_manual" ? "" : v })
+                      setBookingItemAutoSet(false)
+                    }}>
+                    <SelectTrigger className={bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : ""}>
+                      <SelectValue placeholder="Buchungsposten wählen..." />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_manual">— Manuell eingeben —</SelectItem>
                       {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
@@ -268,11 +399,12 @@ export default function TimePage() {
                   <Input
                     placeholder="z.B. 4800061526 - Support PI/PO"
                     value={form.booking_item_text}
-                    onChange={(e) => setForm({ ...form, booking_item_text: e.target.value })}
-                    className={bookingItems.length > 0 ? "mt-1" : ""}
+                    onChange={(e) => { setForm({ ...form, booking_item_text: e.target.value }); setBookingItemAutoSet(false) }}
+                    className={bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400 mt-1" : "mt-1"}
                   />
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label>Code</Label>
                 <Select value={form.code}
@@ -296,7 +428,6 @@ export default function TimePage() {
               </div>
 
               <div className="col-span-full flex justify-between items-center pt-2">
-                {/* Live preview */}
                 {form.time_from && form.time_to && (
                   <span className="text-sm text-muted-foreground">
                     Netto: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to, parseInt(form.break_min || "0")))}</strong>
@@ -313,7 +444,6 @@ export default function TimePage() {
         </Card>
       )}
 
-      {/* Month nav + entries list */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -382,6 +512,61 @@ export default function TimePage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={showOverlapDialog} onOpenChange={setShowOverlapDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Zeitüberschneidung
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Für diesen Kunden existieren bereits Einträge im gleichen Zeitraum:
+            </p>
+            <div className="rounded-md border divide-y">
+              {overlapConflicts.map((c) => (
+                <div key={c.id} className="px-3 py-2 text-sm space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">{formatDate(c.date)}</span>
+                    <span className="font-mono font-medium">{c.time_from}–{c.time_to}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                    {c.project?.name && <span>{c.project.name}</span>}
+                    {c.task?.name && (
+                      <>
+                        <span>·</span>
+                        <span>{c.task.name}</span>
+                      </>
+                    )}
+                    {c.description && (
+                      <>
+                        <span>·</span>
+                        <span>{c.description}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-sm">Trotzdem speichern?</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOverlapDialog(false)}>Abbrechen</Button>
+            <Button variant="destructive" onClick={doSave}>Trotzdem speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {userId && (
+        <TaetigkeitsberichtDialog
+          userId={userId}
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          defaultMonth={`${year}-${month.toString().padStart(2, "0")}`}
+        />
+      )}
     </div>
   )
 }

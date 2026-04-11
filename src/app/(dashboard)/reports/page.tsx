@@ -1,41 +1,29 @@
-import { createClient } from "@/lib/supabase/server"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+"use client"
+
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { FileText, Download } from "lucide-react"
+import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
 
-export default async function ReportsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+const PLACEHOLDER_REPORTS = [
+  { title: "Hauptbericht", description: "Zusammenfassung aller Stunden, Codes und Projekte" },
+  { title: "Urlaubsübersicht", description: "Jahresübersicht Urlaub, Krankheit und Schulungen" },
+  { title: "Überstundenübersicht", description: "Jahresübersicht der Überstunden nach Monat" },
+  { title: "Spesenabrechnung", description: "Aktuelle Spesenabrechnung als PDF exportieren" },
+]
 
-  const now = new Date()
+export default function ReportsPage() {
+  const supabase = createClient()
+  const [userId, setUserId] = useState("")
+  const [dialogOpen, setDialogOpen] = useState(false)
 
-  const reports = [
-    {
-      title: "Tätigkeitsbericht",
-      description: "Monatliche Zeiterfassung nach Kunden und Projekten",
-      href: `/api/export/taetigkeitsbericht?year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
-    },
-    {
-      title: "Hauptbericht",
-      description: "Zusammenfassung aller Stunden, Codes und Projekte",
-      href: `/api/export/hauptbericht?year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
-    },
-    {
-      title: "Urlaubsübersicht",
-      description: "Jahresübersicht Urlaub, Krankheit und Schulungen",
-      href: `/api/export/urlaub?year=${now.getFullYear()}`,
-    },
-    {
-      title: "Überstundenübersicht",
-      description: "Jahresübersicht der Überstunden nach Monat",
-      href: `/api/export/ueberstunden?year=${now.getFullYear()}`,
-    },
-    {
-      title: "Spesenabrechnung PDF",
-      description: "Aktuelle Spesenabrechnung als PDF exportieren",
-      href: `/api/export/spesen?year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
-    },
-  ]
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id)
+    })
+  }, [supabase])
 
   return (
     <div className="space-y-6">
@@ -45,42 +33,55 @@ export default async function ReportsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {reports.map((report) => (
-          <Card key={report.title} className="hover:bg-muted/30 transition-colors">
+        {/* Tätigkeitsbericht — fully implemented */}
+        <Card className="hover:bg-muted/30 transition-colors">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <CardTitle className="text-base">Tätigkeitsbericht</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Monatliche Zeiterfassung nach Kunden und Projekten
+                  </CardDescription>
+                </div>
+              </div>
+              <Button size="sm" onClick={() => setDialogOpen(true)} disabled={!userId} className="gap-1.5">
+                <Download className="h-3.5 w-3.5" />
+                Erstellen
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Placeholder cards */}
+        {PLACEHOLDER_REPORTS.map(r => (
+          <Card key={r.title} className="opacity-60">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <CardTitle className="text-base">{report.title}</CardTitle>
-                    <CardDescription className="text-xs mt-0.5">{report.description}</CardDescription>
+                    <CardTitle className="text-base">{r.title}</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">{r.description}</CardDescription>
                   </div>
                 </div>
-                <a
-                  href={report.href}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Export
-                </a>
+                <Button size="sm" variant="outline" disabled className="gap-1.5 text-xs">
+                  Demnächst
+                </Button>
               </div>
             </CardHeader>
           </Card>
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Export-Hinweis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            PDF-Export wird als Pro-Feature in Kürze vollständig verfügbar sein.
-            Die Berichte basieren auf deinen erfassten Daten und werden im Format
-            deines bisherigen Excel-Berichts ausgegeben.
-          </p>
-        </CardContent>
-      </Card>
+      {userId && (
+        <TaetigkeitsberichtDialog
+          userId={userId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
+      )}
     </div>
   )
 }
