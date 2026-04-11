@@ -134,9 +134,14 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
 
           <div className="space-y-2">
             <Label>Projekt</Label>
-            <Select value={projectId} onValueChange={(v) => { setProjectId(v); setTaskId("") }} disabled={!clientId}>
+            <Select
+              value={projectId || "_none"}
+              onValueChange={v => { setProjectId(v === "_none" ? "" : v); setTaskId("") }}
+              disabled={!clientId}
+            >
               <SelectTrigger><SelectValue placeholder="Projekt wählen..." /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="_none">— Kein Projekt —</SelectItem>
                 {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>

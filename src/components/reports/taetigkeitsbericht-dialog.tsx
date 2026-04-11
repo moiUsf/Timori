@@ -244,6 +244,12 @@ export function TaetigkeitsberichtDialog({
     updateRow(i, { taetigkeit: value })
   }
 
+  function handlePauseChange(i: number, minutes: number) {
+    const row = previewRows[i]
+    const netto = Math.round(Math.max(0, row.brutto - minutes / 60) * 10) / 10
+    updateRow(i, { break_min: minutes, netto, pauseDirty: true })
+  }
+
   // ── Download from step 2 ───────────────────────────────────
   async function handleDownload() {
     setGenerating(true)
@@ -259,7 +265,7 @@ export function TaetigkeitsberichtDialog({
       }
 
       // Update dirty rows in DB
-      const dirty = previewRows.filter(r => r.id && (r.vonDirty || r.bisDirty))
+      const dirty = previewRows.filter(r => r.id && (r.vonDirty || r.bisDirty || r.pauseDirty))
       if (dirty.length > 0) {
         await Promise.all(dirty.map(r =>
           supabase.from("time_entries").update({
@@ -267,6 +273,7 @@ export function TaetigkeitsberichtDialog({
             time_to: r.bis.length === 5 ? r.bis + ":00" : r.bis,
             gross_h: r.brutto,
             net_h: r.netto,
+            break_min: r.break_min,
           }).eq("id", r.id)
         ))
       }
@@ -461,68 +468,112 @@ export function TaetigkeitsberichtDialog({
                     <th className="border px-1.5 py-1 text-center font-medium w-20">{t("pdfColTo")}</th>
                     <th className="border px-1.5 py-1 font-medium">{t("pdfColActivity")}</th>
                     <th className="border px-1.5 py-1 text-center font-medium w-14">{t("pdfColGross")}</th>
-                    <th className="border px-1.5 py-1 text-center font-medium w-14">{t("pdfColBreak")}</th>
+                    <th className="border px-1.5 py-1 text-center font-medium w-16">{t("pdfColBreak")}</th>
                     <th className="border px-1.5 py-1 text-center font-medium w-14">{t("pdfColNet")}</th>
                     <th className="border px-1.5 py-1 text-center font-medium w-16">{t("pdfColDailyNet")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(() => {
-                    // Group rows by date for tagesNetto display logic
-                    const dateLastIdx = new Map<string, number>()
-                    previewRows.forEach((r, i) => { if (r.id) dateLastIdx.set(r.date, i) })
+                  {previewRows.map((row, i) => {
+                    const isFirst = i === 0 || previewRows[i - 1].date !== row.date
+                    const isLastOfDay = i === previewRows.length - 1 || previewRows[i + 1].date !== row.date
+                    const rowSpanCount = previewRows.filter(r => r.date === row.date).length
 
-                    return previewRows.map((row, i) => {
-                      const isFirst = i === 0 || previewRows[i - 1].date !== row.date
-                      const isLastOfDay = dateLastIdx.get(row.date) === i
-                      const rowSpanCount = previewRows.filter(r => r.date === row.date).length
+                    const weekendStyle = row.isWeekend ? "text-muted-foreground bg-muted/30" : ""
+                    const dirtyStyle = (row.vonDirty || row.bisDirty || row.pauseDirty) ? "bg-blue-50 dark:bg-blue-950/30" : ""
 
-                      const weekendStyle = row.isWeekend ? "text-muted-foreground bg-muted/30" : ""
-                      const dirtyStyle = (row.vonDirty || row.bisDirty) ? "bg-blue-50 dark:bg-blue-950/30" : ""
-
-                      return (
-                        <tr key={`${row.date}-${i}`} className={`${weekendStyle} ${dirtyStyle}`}>
-                          {isFirst && (
-                            <td className="border px-1.5 py-0.5 text-center font-medium" rowSpan={rowSpanCount}>
-                              {row.weekday}
-                            </td>
-                          )}
-                          {isFirst && (
-                            <td className="border px-1.5 py-0.5" rowSpan={rowSpanCount}>
-                              {row.dayLabel}
-                            </td>
-                          )}
-                          <td className="border px-0.5 py-0.5">
-                            {row.id && !row.isWeekend ? (
-                              <input type="time" value={row.von} onChange={e => handleVonChange(i, e.target.value)}
-                                className="w-full bg-transparent text-xs text-center focus:outline-none focus:bg-accent/50 rounded px-0.5" />
-                            ) : null}
+                    return (
+                      <tr key={`${row.date}-${i}`} className={`${weekendStyle} ${dirtyStyle}`}>
+                        {isFirst && (
+                          <td className="border px-1.5 py-0.5 text-center font-medium" rowSpan={rowSpanCount}>
+                            {row.weekday}
                           </td>
-                          <td className="border px-0.5 py-0.5">
-                            {row.id && !row.isWeekend ? (
-                              <input type="time" value={row.bis} onChange={e => handleBisChange(i, e.target.value)}
-                                className="w-full bg-transparent text-xs text-center focus:outline-none focus:bg-accent/50 rounded px-0.5" />
-                            ) : null}
+                        )}
+                        {isFirst && (
+                          <td className="border px-1.5 py-0.5" rowSpan={rowSpanCount}>
+                            {row.dayLabel}
                           </td>
-                          <td className="border px-0.5 py-0.5">
-                            {row.id && !row.isWeekend ? (
-                              <input type="text" value={row.taetigkeit} onChange={e => handleTaetigkeitChange(i, e.target.value)}
-                                className="w-full bg-transparent text-xs focus:outline-none focus:bg-accent/50 rounded px-1" />
-                            ) : null}
-                          </td>
-                          <td className="border px-1.5 py-0.5 text-center font-mono">{fh(row.brutto)}</td>
-                          <td className="border px-1.5 py-0.5 text-center font-mono">{row.id ? fPause(row.break_min) : ""}</td>
-                          <td className="border px-1.5 py-0.5 text-center font-mono">{fh(row.netto)}</td>
-                          <td className="border px-1.5 py-0.5 text-center font-mono font-medium">
-                            {isLastOfDay && row.tagesNetto > 0 ? fh(row.tagesNetto) : ""}
-                          </td>
-                        </tr>
-                      )
-                    })
-                  })()}
+                        )}
+                        <td className="border px-0.5 py-0.5">
+                          {!!row.id ? (
+                            <input type="time" value={row.von} onChange={e => handleVonChange(i, e.target.value)}
+                              className="w-full bg-transparent text-xs text-center focus:outline-none focus:bg-accent/50 rounded px-0.5" />
+                          ) : null}
+                        </td>
+                        <td className="border px-0.5 py-0.5">
+                          {!!row.id ? (
+                            <input type="time" value={row.bis} onChange={e => handleBisChange(i, e.target.value)}
+                              className="w-full bg-transparent text-xs text-center focus:outline-none focus:bg-accent/50 rounded px-0.5" />
+                          ) : null}
+                        </td>
+                        <td className="border px-0.5 py-0.5">
+                          {!!row.id ? (
+                            <input type="text" value={row.taetigkeit} onChange={e => handleTaetigkeitChange(i, e.target.value)}
+                              className="w-full bg-transparent text-xs focus:outline-none focus:bg-accent/50 rounded px-1" />
+                          ) : null}
+                        </td>
+                        <td className="border px-1.5 py-0.5 text-center font-mono">{fh(row.brutto)}</td>
+                        <td className="border px-0.5 py-0.5 text-center">
+                          {!!row.id ? (
+                            <input
+                              type="number" min={0} step={1} value={row.break_min === 0 ? "" : row.break_min}
+                              placeholder="0"
+                              onChange={e => handlePauseChange(i, Math.max(0, parseInt(e.target.value || "0", 10)))}
+                              className="w-full bg-transparent text-xs text-center font-mono focus:outline-none focus:bg-accent/50 rounded px-0.5"
+                            />
+                          ) : null}
+                        </td>
+                        <td className="border px-1.5 py-0.5 text-center font-mono">{fh(row.netto)}</td>
+                        <td className="border px-1.5 py-0.5 text-center font-mono font-medium">
+                          {isLastOfDay && row.tagesNetto > 0 ? fh(row.tagesNetto) : ""}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
+
+            {/* ── Summary below table ─────────────────────────────── */}
+            {(() => {
+              const totalNetto = Math.round(previewRows.reduce((s, r) => s + r.netto, 0) * 10) / 10
+              const totalBrutto = Math.round(previewRows.reduce((s, r) => s + r.brutto, 0) * 10) / 10
+
+              const kontoMap = new Map<string, number>()
+              for (const row of previewRows) {
+                if (!row.id) continue
+                const entry = fetchedEntries.find(e => e.id === row.id)
+                const label = entry?.booking_item_text || (entry?.project as { name: string } | null)?.name || t("misc")
+                kontoMap.set(label, Math.round(((kontoMap.get(label) ?? 0) + row.netto) * 10) / 10)
+              }
+              const buchungskonten = Array.from(kontoMap.entries())
+                .map(([label, stunden]) => ({ label, stunden }))
+                .sort((a, b) => b.stunden - a.stunden)
+
+              return (
+                <div className="border-t shrink-0 px-3 py-2 space-y-2 bg-muted/20">
+                  {/* Totals */}
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span>{t("pdfTotal")}</span>
+                    <span className="font-mono">
+                      {String(totalBrutto.toFixed(1)).replace(".", ",")} h {t("pdfColGross")} / {String(totalNetto.toFixed(1)).replace(".", ",")} h {t("pdfColNet")}
+                    </span>
+                  </div>
+                  {/* Grouped by booking item */}
+                  {buchungskonten.length > 0 && (
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-medium text-muted-foreground">{t("pdfBookingOverview")}</p>
+                      {buchungskonten.map((k, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground truncate">{k.label}</span>
+                          <span className="font-mono ml-3 shrink-0">{String(k.stunden.toFixed(1)).replace(".", ",")} h</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             <DialogFooter className="pt-2 border-t shrink-0">
               <Button variant="outline" onClick={() => setStep(1)} className="gap-2">
