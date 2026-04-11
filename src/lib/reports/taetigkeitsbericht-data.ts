@@ -1,3 +1,8 @@
+import type { TaetigkeitField } from "@/types/database"
+export { TaetigkeitField }
+
+export const DEFAULT_TAETIGKEIT_FIELDS: TaetigkeitField[] = ["booking_item", "task", "description", "project"]
+
 export interface FetchedEntry {
   id: string
   date: string
@@ -35,6 +40,25 @@ export interface BuchungskontoRow {
   stunden: number
 }
 
+export interface PreviewRow {
+  id: string              // time_entry id; "" for empty/weekend placeholder
+  date: string
+  weekday: string
+  dayLabel: string
+  von: string             // "HH:MM"
+  bis: string             // "HH:MM"
+  originalVon: string
+  originalBis: string
+  taetigkeit: string
+  break_min: number
+  brutto: number
+  netto: number
+  tagesNetto: number
+  vonDirty: boolean
+  bisDirty: boolean
+  isWeekend: boolean
+}
+
 export interface ReportData {
   mitarbeiter: string
   mitarbeiterNr: string
@@ -58,13 +82,73 @@ const DE_MONTH_ABBR = [
 ]
 const DE_WEEKDAYS = ["So","Mo","Di","Mi","Do","Fr","Sa"]
 
-function buildTaetigkeitText(entry: FetchedEntry): string {
-  const parts: string[] = []
-  if (entry.booking_item_text) parts.push(entry.booking_item_text)
-  if (entry.task?.name) parts.push(entry.task.name)
-  if (parts.length > 0) return parts.join(" - ")
-  if (entry.description) return entry.description
-  return entry.project?.name ?? ""
+function buildTaetigkeitText(entry: FetchedEntry, fields: TaetigkeitField[] = DEFAULT_TAETIGKEIT_FIELDS): string {
+  const fieldMap: Record<TaetigkeitField, string | undefined> = {
+    booking_item: entry.booking_item_text || undefined,
+    task: entry.task?.name || undefined,
+    description: entry.description || undefined,
+    project: entry.project?.name || undefined,
+  }
+  const parts = fields.map(f => fieldMap[f]).filter((v): v is string => !!v)
+  return parts.join(" - ")
+}
+
+function parseHM(s: string): number {
+  if (!s || !s.includes(":")) return 0
+  const [h, m] = s.split(":").map(Number)
+  return h + (m ?? 0) / 60
+}
+
+export function calcBrutto(von: string, bis: string): number {
+  const v = parseHM(von)
+  const b = parseHM(bis)
+  return b > v ? Math.round((b - v) * 10) / 10 : 0
+}
+
+export function recalcTagesNetto(rows: PreviewRow[]): PreviewRow[] {
+  const dateNetto = new Map<string, number>()
+  for (const r of rows) {
+    if (r.id) dateNetto.set(r.date, (dateNetto.get(r.date) ?? 0) + r.netto)
+  }
+  return rows.map(r => ({ ...r, tagesNetto: dateNetto.get(r.date) ?? 0 }))
+}
+
+export function buildPreviewRows(
+  entries: FetchedEntry[],
+  year: number,
+  month: number,
+  fields: TaetigkeitField[],
+): PreviewRow[] {
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const rows: PreviewRow[] = []
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${month.toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`
+    const dateObj = new Date(dateStr + "T00:00:00")
+    const dow = dateObj.getDay()
+    const isWeekend = dow === 0 || dow === 6
+    const weekday = DE_WEEKDAYS[dow]
+    const dayLabel = `${d.toString().padStart(2, "0")}. ${DE_MONTH_ABBR[month - 1]}`
+    const dayEntries = entries.filter(e => e.date === dateStr)
+
+    if (dayEntries.length === 0) {
+      rows.push({ id: "", date: dateStr, weekday, dayLabel, von: "", bis: "",
+        originalVon: "", originalBis: "", taetigkeit: "", break_min: 0,
+        brutto: 0, netto: 0, tagesNetto: 0, vonDirty: false, bisDirty: false, isWeekend })
+    } else {
+      const tagesNetto = dayEntries.reduce((s, e) => s + e.net_h, 0)
+      for (const e of dayEntries) {
+        const von = e.time_from.slice(0, 5)
+        const bis = e.time_to.slice(0, 5)
+        rows.push({ id: e.id, date: dateStr, weekday, dayLabel, von, bis,
+          originalVon: von, originalBis: bis,
+          taetigkeit: buildTaetigkeitText(e, fields),
+          break_min: e.break_min, brutto: e.gross_h, netto: e.net_h, tagesNetto,
+          vonDirty: false, bisDirty: false, isWeekend })
+      }
+    }
+  }
+  return rows
 }
 
 export function buildReportData(
@@ -73,6 +157,8 @@ export function buildReportData(
   client: { name: string; client_nr: string | null },
   year: number,
   month: number,
+  taetigkeitFields?: TaetigkeitField[],
+  taetigkeitOverride?: Record<string, string>,
 ): ReportData {
   const daysInMonth = new Date(year, month, 0).getDate()
   const days: ReportDay[] = []
@@ -96,7 +182,7 @@ export function buildReportData(
       entries: dayEntries.map(e => ({
         time_from: e.time_from,
         time_to: e.time_to,
-        taetigkeitText: buildTaetigkeitText(e),
+        taetigkeitText: taetigkeitOverride?.[e.id] ?? buildTaetigkeitText(e, taetigkeitFields),
         gross_h: e.gross_h,
         break_min: e.break_min,
         net_h: e.net_h,

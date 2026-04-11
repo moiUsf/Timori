@@ -1,4 +1,9 @@
 export type HourCode = "BEV" | "BENV" | "RZV" | "RZNV"
+export type TaetigkeitField = "booking_item" | "task" | "description" | "project"
+
+export interface ReportConfig {
+  taetigkeit_fields: TaetigkeitField[]
+}
 export type VacationType = "annual" | "special" | "training" | "illness"
 export type ExpenseCategory =
   | "hotel_inland" | "hotel_ausland" | "flug_inland" | "flug_ausland"
@@ -16,6 +21,7 @@ export interface UserProfile {
   vacation_quota: number
   federal_state: string
   hourly_rate: number | null
+  report_config: ReportConfig | null
   created_at: string
   updated_at: string
 }
@@ -27,6 +33,7 @@ export interface Client {
   client_nr: string | null
   country: string
   active: boolean
+  default_remote: boolean
   created_at: string
 }
 
@@ -48,11 +55,14 @@ export interface Task {
   id: string
   user_id: string
   project_id: string | null
+  client_id: string | null
+  default_booking_item_id: string | null
   name: string
   description: string | null
   active: boolean
   created_at: string
   project?: Project
+  default_booking_item?: { id: string; name: string } | null
 }
 
 export interface BookingItem {

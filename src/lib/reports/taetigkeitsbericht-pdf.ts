@@ -2,6 +2,56 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import type { ReportData } from "./taetigkeitsbericht-data"
 
+export type PdfLabels = {
+  title: string
+  nameLabel: string
+  employeeNr: string
+  client: string
+  clientNr: string
+  colWeekday: string
+  colDay: string
+  colFrom: string
+  colTo: string
+  colActivity: string
+  colGross: string
+  colBreak: string
+  colNet: string
+  colDailyNet: string
+  bookingOverview: string
+  total: string
+  costCenter: string
+  remarks: string
+  signatureContractor: string
+  signatureClient: string
+}
+
+export const DEFAULT_PDF_LABELS: PdfLabels = {
+  title: "TÄTIGKEITSBERICHT",
+  nameLabel: "Name",
+  employeeNr: "Mitarbeiter-Nr.",
+  client: "Kunde",
+  clientNr: "Kunden-Nr.",
+  colWeekday: "WT",
+  colDay: "Tag",
+  colFrom: "von",
+  colTo: "bis",
+  colActivity: "Tätigkeit",
+  colGross: "Brutto",
+  colBreak: "Pause",
+  colNet: "Netto",
+  colDailyNet: "Tages-\nNetto",
+  bookingOverview: "Buchungskonten Übersicht",
+  total: "Gesamt",
+  costCenter: "Kostenstelle",
+  remarks: "Bemerkungen",
+  signatureContractor: "Unterschrift Auftragnehmer",
+  signatureClient: "Unterschrift Kunde",
+}
+
+function fTime(t: string): string {
+  return t ? t.slice(0, 5) : ""
+}
+
 function fh(h: number): string {
   return h === 0 ? "" : h.toFixed(1).replace(".", ",")
 }
@@ -13,7 +63,7 @@ function fPause(min: number): string {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`
 }
 
-export function generatePDF(data: ReportData): Blob {
+export function generatePDF(data: ReportData, labels: PdfLabels = DEFAULT_PDF_LABELS): Blob {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
   const marginL = 12
   const marginR = 12
@@ -23,18 +73,18 @@ export function generatePDF(data: ReportData): Blob {
   // ── Header ──────────────────────────────────────────────
   doc.setFontSize(13)
   doc.setFont("helvetica", "bold")
-  doc.text("TÄTIGKEITSBERICHT", marginL, y)
+  doc.text(labels.title, marginL, y)
   doc.setFontSize(11)
-  doc.text(data.monatLabel, pageW - marginR, y, { align: "right" })
+  doc.text(data.monatLabel, 184, y, { align: "right" })
   y += 7
 
   doc.setFontSize(8.5)
   doc.setFont("helvetica", "normal")
-  doc.text(`Name: ${data.mitarbeiter}`, marginL, y)
-  doc.text(`Mitarbeiter-Nr.: ${data.mitarbeiterNr}`, marginL + 90, y)
+  doc.text(`${labels.nameLabel}: ${data.mitarbeiter}`, marginL, y)
+  doc.text(`${labels.employeeNr}: ${data.mitarbeiterNr}`, marginL + 90, y)
   y += 5
-  doc.text(`Kunde: ${data.kunde}`, marginL, y)
-  doc.text(`Kunden-Nr.: ${data.kundenNr}`, marginL + 90, y)
+  doc.text(`${labels.client}: ${data.kunde}`, marginL, y)
+  doc.text(`${labels.clientNr}: ${data.kundenNr}`, marginL + 90, y)
   y += 7
 
   // ── Main table body ──────────────────────────────────────
@@ -56,8 +106,8 @@ export function generatePDF(data: ReportData): Blob {
         body.push([
           i === 0 ? day.weekday : "",
           i === 0 ? day.dayLabel : "",
-          entry.time_from,
-          entry.time_to,
+          fTime(entry.time_from),
+          fTime(entry.time_to),
           entry.taetigkeitText,
           fh(entry.gross_h),
           fPause(entry.break_min),
@@ -70,9 +120,19 @@ export function generatePDF(data: ReportData): Blob {
 
   autoTable(doc, {
     startY: y,
-    head: [["WT", "Tag", "von", "bis", "Tätigkeit", "Brutto", "Pause", "Netto", "Tages-\nNetto"]],
+    head: [[
+      labels.colWeekday,
+      labels.colDay,
+      labels.colFrom,
+      labels.colTo,
+      labels.colActivity,
+      labels.colGross,
+      labels.colBreak,
+      labels.colNet,
+      labels.colDailyNet,
+    ]],
     body,
-    styles: { fontSize: 7.5, cellPadding: 1.5, overflow: "linebreak" },
+    styles: { fontSize: 7.5, cellPadding: 1.5, overflow: "linebreak", textColor: [0, 0, 0] },
     headStyles: {
       fillColor: [220, 220, 220],
       textColor: [0, 0, 0],
@@ -83,9 +143,9 @@ export function generatePDF(data: ReportData): Blob {
     columnStyles: {
       0: { cellWidth: 8, halign: "center" },
       1: { cellWidth: 18 },
-      2: { cellWidth: 12, halign: "center" },
-      3: { cellWidth: 12, halign: "center" },
-      4: { cellWidth: 67 },
+      2: { cellWidth: 14, halign: "center" },
+      3: { cellWidth: 14, halign: "center" },
+      4: { cellWidth: 63 },
       5: { cellWidth: 13, halign: "center" },
       6: { cellWidth: 13, halign: "center" },
       7: { cellWidth: 13, halign: "center" },
@@ -105,11 +165,11 @@ export function generatePDF(data: ReportData): Blob {
 
   doc.setFontSize(9)
   doc.setFont("helvetica", "bold")
-  doc.text("Buchungskonten Übersicht", marginL, afterTable)
+  doc.text(labels.bookingOverview, marginL, afterTable)
 
   const kontoBody = [
     ...data.buchungskonten.map(k => [k.label, `${fh(k.stunden)} h`]),
-    ["Gesamt", `${fh(data.gesamtNetto)} h`],
+    [labels.total, `${fh(data.gesamtNetto)} h`],
   ]
 
   autoTable(doc, {
@@ -138,11 +198,11 @@ export function generatePDF(data: ReportData): Blob {
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(8)
-  doc.text("Kostenstelle: _______________________", marginL, sigY)
-  doc.text("Bemerkungen: _______________________", marginL + 80, sigY)
+  doc.text(`${labels.costCenter}: _______________________`, marginL, sigY)
+  doc.text(`${labels.remarks}: _______________________`, marginL + 80, sigY)
   sigY += 12
-  doc.text("Unterschrift Auftragnehmer: _______________________", marginL, sigY)
-  doc.text("Unterschrift Kunde: _______________________", marginL + 100, sigY)
+  doc.text(`${labels.signatureContractor}: _______________________`, marginL, sigY)
+  doc.text(`${labels.signatureClient}: _______________________`, marginL + 100, sigY)
 
   return doc.output("blob")
 }

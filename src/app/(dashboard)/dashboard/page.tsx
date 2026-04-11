@@ -1,69 +1,142 @@
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import { useEffect, useState, useCallback } from "react"
+import { useTranslations } from "next-intl"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Clock, Umbrella, TrendingUp, CalendarDays } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Clock, Umbrella, TrendingUp, CalendarDays, Pencil, Check } from "lucide-react"
 import { formatHours, formatMonthYear } from "@/lib/utils"
 import { getHolidays } from "@/lib/holidays"
 import type { GermanState } from "@/lib/holidays"
+import type { Client, UserProfile } from "@/types/database"
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+type ClientWithBooking = Client & { monthly_booked_days: number }
 
+type ClientStat = {
+  client: ClientWithBooking
+  consumed_h: number
+  booked_h: number
+  remaining_h: number
+  pct: number
+}
+
+function countWorkingDays(year: number, month: number): number {
+  const days = new Date(year, month, 0).getDate()
+  let count = 0
+  for (let d = 1; d <= days; d++) {
+    const dow = new Date(year, month - 1, d).getDay()
+    if (dow !== 0 && dow !== 6) count++
+  }
+  return count
+}
+
+export default function DashboardPage() {
+  const supabase = createClient()
+  const t = useTranslations("dashboard")
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth() + 1
   const startOfMonth = `${year}-${month.toString().padStart(2, "0")}-01`
   const endOfMonth = new Date(year, month, 0).toISOString().slice(0, 10)
 
-  const [profileRes, timeEntriesRes, vacationRes, activeTimersRes, overtimeRes] =
-    await Promise.all([
-      supabase.from("users_profile").select("*").eq("user_id", user.id).single(),
-      supabase.from("time_entries").select("net_h, date, code").eq("user_id", user.id)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [clientStats, setClientStats] = useState<ClientStat[]>([])
+  const [totalNetHours, setTotalNetHours] = useState(0)
+  const [activeTimerCount, setActiveTimerCount] = useState(0)
+  const [vacationRemaining, setVacationRemaining] = useState(0)
+  const [totalVacationTaken, setTotalVacationTaken] = useState(0)
+  const [totalOvertime, setTotalOvertime] = useState(0)
+  const [upcomingHolidays, setUpcomingHolidays] = useState<{ date: string; name: string }[]>([])
+  const [userId, setUserId] = useState("")
+  const [editingClientId, setEditingClientId] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState("")
+
+  const loadData = useCallback(async (uid: string) => {
+    const [profileRes, entriesRes, vacationRes, activeRes, overtimeRes, clientsRes] = await Promise.all([
+      supabase.from("users_profile").select("*").eq("user_id", uid).single(),
+      supabase.from("time_entries").select("net_h, client_id").eq("user_id", uid)
         .gte("date", startOfMonth).lte("date", endOfMonth),
-      supabase.from("vacation_entries").select("days, type").eq("user_id", user.id)
+      supabase.from("vacation_entries").select("days, type").eq("user_id", uid)
         .gte("date_from", `${year}-01-01`).lte("date_to", `${year}-12-31`),
-      supabase.from("active_timers").select("id").eq("user_id", user.id),
+      supabase.from("active_timers").select("id").eq("user_id", uid),
       supabase.from("overtime_records").select("buildup_h, reduction_h, carryover_h")
-        .eq("user_id", user.id).eq("year", year),
+        .eq("user_id", uid).eq("year", year),
+      supabase.from("clients").select("*").eq("user_id", uid).eq("active", true).order("name"),
     ])
 
-  const profile = profileRes.data
-  const entries = timeEntriesRes.data ?? []
-  const vacations = vacationRes.data ?? []
-  const activeTimerCount = activeTimersRes.data?.length ?? 0
-  const overtimeMonths = overtimeRes.data ?? []
+    const prof = profileRes.data as UserProfile | null
+    const entries = entriesRes.data ?? []
+    const vacations = vacationRes.data ?? []
+    const overtimeMonths = overtimeRes.data ?? []
+    const clients = (clientsRes.data ?? []) as ClientWithBooking[]
+    const hoursPerDay = prof?.working_hours_per_day ?? 8
 
-  // Calculate stats
-  const totalNetHours = entries.reduce((sum, e) => sum + (e.net_h ?? 0), 0)
+    setProfile(prof)
+    setActiveTimerCount(activeRes.data?.length ?? 0)
+
+    const totalH = entries.reduce((s, e) => s + (e.net_h ?? 0), 0)
+    setTotalNetHours(totalH)
+
+    const vacTaken = vacations.filter(v => v.type === "annual").reduce((s, v) => s + v.days, 0)
+    setTotalVacationTaken(vacTaken)
+    setVacationRemaining((prof?.vacation_quota ?? 30) - vacTaken)
+
+    const ot = overtimeMonths.reduce((s, m) => s + m.buildup_h - m.reduction_h, 0) + (overtimeMonths[0]?.carryover_h ?? 0)
+    setTotalOvertime(ot)
+
+    const hoursByClient: Record<string, number> = {}
+    entries.forEach(e => {
+      if (e.client_id) hoursByClient[e.client_id] = (hoursByClient[e.client_id] ?? 0) + (e.net_h ?? 0)
+    })
+
+    const stats: ClientStat[] = clients
+      .filter(c => (hoursByClient[c.id] ?? 0) > 0 || (c.monthly_booked_days ?? 0) > 0)
+      .map(c => {
+        const consumed_h = hoursByClient[c.id] ?? 0
+        const booked_h = (c.monthly_booked_days ?? 0) * hoursPerDay
+        const remaining_h = booked_h - consumed_h
+        const pct = booked_h > 0 ? Math.min(100, (consumed_h / booked_h) * 100) : 0
+        return { client: c, consumed_h, booked_h, remaining_h, pct }
+      })
+      .sort((a, b) => b.consumed_h - a.consumed_h)
+
+    setClientStats(stats)
+
+    const holidays = getHolidays(year, (prof?.federal_state ?? "DE-NW") as GermanState)
+    const upcoming = holidays
+      .filter(h => { const d = new Date(h.date); return d >= now && d.getMonth() + 1 === month })
+      .slice(0, 3)
+    setUpcomingHolidays(upcoming)
+  }, [supabase, startOfMonth, endOfMonth, year])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) { setUserId(user.id); loadData(user.id) }
+    })
+  }, [supabase, loadData])
+
+  async function saveBookedDays(clientId: string, days: number) {
+    const value = isNaN(days) || days < 0 ? 0 : days
+    await supabase.from("clients").update({ monthly_booked_days: value }).eq("id", clientId)
+    setEditingClientId(null)
+    if (userId) loadData(userId)
+  }
+
   const workingDaysInMonth = countWorkingDays(year, month)
   const targetHours = workingDaysInMonth * (profile?.working_hours_per_day ?? 8)
   const overtimeDiff = totalNetHours - targetHours
 
-  const totalVacationTaken = vacations
-    .filter((v) => v.type === "annual")
-    .reduce((sum, v) => sum + v.days, 0)
-  const vacationRemaining = (profile?.vacation_quota ?? 30) - totalVacationTaken
-
-  const totalOvertime = overtimeMonths.reduce(
-    (sum, m) => sum + m.buildup_h - m.reduction_h,
-    0
-  ) + (overtimeMonths[0]?.carryover_h ?? 0)
-
-  // Upcoming holidays this month
-  const holidays = getHolidays(year, (profile?.federal_state ?? "DE-NW") as GermanState)
-  const upcomingHolidays = holidays
-    .filter((h) => {
-      const d = new Date(h.date)
-      return d >= now && d.getMonth() + 1 === month
-    })
-    .slice(0, 3)
+  function barColor(pct: number) {
+    if (pct >= 100) return "bg-red-500"
+    if (pct >= 75) return "bg-amber-400"
+    return "bg-primary"
+  }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground">{formatMonthYear(now)}</p>
       </div>
 
@@ -71,55 +144,56 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stunden diesen Monat</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("hoursThisMonth")}</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatHours(totalNetHours)}</div>
             <p className="text-xs text-muted-foreground">
-              Ziel: {formatHours(targetHours)} ({workingDaysInMonth} AT)
+              {t("hoursTarget", { target: formatHours(targetHours), days: workingDaysInMonth })}
             </p>
             <div className={`text-xs font-medium mt-1 ${overtimeDiff >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {overtimeDiff >= 0 ? "+" : ""}{formatHours(Math.abs(overtimeDiff))} {overtimeDiff >= 0 ? "Überstunden" : "Fehlstunden"}
+              {overtimeDiff >= 0 ? "+" : ""}{formatHours(Math.abs(overtimeDiff))}{" "}
+              {overtimeDiff >= 0 ? t("overtime") : t("shortfall")}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Überstunden gesamt</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("totalOvertime")}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${totalOvertime >= 0 ? "text-green-600" : "text-red-600"}`}>
               {totalOvertime >= 0 ? "+" : ""}{formatHours(Math.abs(totalOvertime))}
             </div>
-            <p className="text-xs text-muted-foreground">Aktuelles Jahr</p>
+            <p className="text-xs text-muted-foreground">{t("currentYear")}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resturlaub</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("remainingVacation")}</CardTitle>
             <Umbrella className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{vacationRemaining} Tage</div>
+            <div className="text-2xl font-bold">{vacationRemaining} {t("bookedDaysUnit")}</div>
             <p className="text-xs text-muted-foreground">
-              {totalVacationTaken} von {profile?.vacation_quota ?? 30} genommen
+              {t("vacationTaken", { taken: totalVacationTaken, quota: profile?.vacation_quota ?? 30 })}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aktive Timer</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("activeTimers")}</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{activeTimerCount}</div>
             <p className="text-xs text-muted-foreground">
-              {activeTimerCount === 0 ? "Kein Timer läuft" : `${activeTimerCount} Timer läuft`}
+              {activeTimerCount === 0 ? t("noTimerRunning") : t("timersRunning", { count: activeTimerCount })}
             </p>
           </CardContent>
         </Card>
@@ -127,26 +201,76 @@ export default async function DashboardPage() {
 
       {/* Bottom section */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Stunden nach Code */}
+        {/* Client utilization */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Stunden nach Code</CardTitle>
+            <CardTitle className="text-base">{t("clientUtilization", { month: formatMonthYear(now) })}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {(["BEV", "BENV", "RZV", "RZNV"] as const).map((code) => {
-              const h = entries.filter((e) => e.code === code).reduce((s, e) => s + e.net_h, 0)
-              return (
-                <div key={code} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">{code}</Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {code === "BEV" ? "Beratung verr." : code === "BENV" ? "Beratung n.v." : code === "RZV" ? "Reisezeit verr." : "Reisezeit n.v."}
-                    </span>
+          <CardContent className="space-y-5">
+            {clientStats.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("noUtilization")}</p>
+            ) : clientStats.map(({ client, consumed_h, booked_h, remaining_h, pct }) => (
+              <div key={client.id} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium truncate">{client.name}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {editingClientId === client.id ? (
+                      <>
+                        <Input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") saveBookedDays(client.id, parseFloat(editingValue))
+                            if (e.key === "Escape") setEditingClientId(null)
+                          }}
+                          autoFocus
+                          className="w-20 h-6 text-xs px-2"
+                        />
+                        <span className="text-xs text-muted-foreground">{t("bookedDaysUnit")}</span>
+                        <button
+                          onClick={() => saveBookedDays(client.id, parseFloat(editingValue))}
+                          className="text-green-600 hover:text-green-700">
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => { setEditingClientId(client.id); setEditingValue(String(client.monthly_booked_days ?? 0)) }}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group">
+                        <span className="font-mono">{client.monthly_booked_days ?? 0} {t("bookedDaysUnit")}</span>
+                        <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
+                    )}
                   </div>
-                  <span className="text-sm font-medium">{formatHours(h)}</span>
                 </div>
-              )
-            })}
+
+                {booked_h > 0 ? (
+                  <>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${barColor(pct)}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{t("hoursOf", { consumed: formatHours(consumed_h), booked: formatHours(booked_h) })}</span>
+                      <span className={remaining_h < 0 ? "text-red-600 font-medium" : remaining_h === 0 ? "text-amber-600 font-medium" : ""}>
+                        {remaining_h >= 0
+                          ? t("remaining", { h: formatHours(remaining_h) })
+                          : t("overdrawn", { h: formatHours(Math.abs(remaining_h)) })}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {t("workedNoUtilization", { h: formatHours(consumed_h) })}
+                  </p>
+                )}
+              </div>
+            ))}
           </CardContent>
         </Card>
 
@@ -155,12 +279,12 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
-              Feiertage diesen Monat
+              {t("holidaysThisMonth")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {upcomingHolidays.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Keine weiteren Feiertage</p>
+              <p className="text-sm text-muted-foreground">{t("noHolidays")}</p>
             ) : (
               <div className="space-y-2">
                 {upcomingHolidays.map((h) => (
@@ -178,14 +302,4 @@ export default async function DashboardPage() {
       </div>
     </div>
   )
-}
-
-function countWorkingDays(year: number, month: number): number {
-  const days = new Date(year, month, 0).getDate()
-  let count = 0
-  for (let d = 1; d <= days; d++) {
-    const dow = new Date(year, month - 1, d).getDay()
-    if (dow !== 0 && dow !== 6) count++
-  }
-  return count
 }

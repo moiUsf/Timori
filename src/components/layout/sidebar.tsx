@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import {
   Clock, LayoutDashboard, CalendarDays, TrendingUp, Receipt,
   Users, FileText, Settings, LogOut, Umbrella
@@ -10,17 +11,6 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import type { UserProfile } from "@/types/database"
 import type { User } from "@supabase/supabase-js"
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/time", label: "Zeiterfassung", icon: Clock },
-  { href: "/vacation", label: "Urlaub & Abwesenheit", icon: Umbrella },
-  { href: "/overtime", label: "Überstunden", icon: TrendingUp },
-  { href: "/holidays", label: "Feiertage", icon: CalendarDays },
-  { href: "/expenses", label: "Spesenabrechnung", icon: Receipt },
-  { href: "/clients", label: "Kunden & Projekte", icon: Users },
-  { href: "/reports", label: "Berichte & Export", icon: FileText },
-]
 
 interface SidebarProps {
   user: User
@@ -31,6 +21,18 @@ export function Sidebar({ user, profile }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const t = useTranslations("nav")
+
+  const navItems = [
+    { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
+    { href: "/time", label: t("time"), icon: Clock },
+    { href: "/vacation", label: t("vacation"), icon: Umbrella },
+    { href: "/overtime", label: t("overtime"), icon: TrendingUp },
+    { href: "/holidays", label: t("holidays"), icon: CalendarDays },
+    { href: "/expenses", label: t("expenses"), icon: Receipt },
+    { href: "/clients", label: t("clients"), icon: Users },
+    { href: "/reports", label: t("reports"), icon: FileText },
+  ]
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -81,7 +83,7 @@ export function Sidebar({ user, profile }: SidebarProps) {
           )}
         >
           <Settings className="h-4 w-4" />
-          Einstellungen
+          {t("settings")}
         </Link>
         <div className="px-3 py-2">
           <p className="text-xs font-medium truncate">{profile.name}</p>
@@ -92,7 +94,7 @@ export function Sidebar({ user, profile }: SidebarProps) {
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <LogOut className="h-4 w-4" />
-          Abmelden
+          {t("logout")}
         </button>
       </div>
     </aside>
