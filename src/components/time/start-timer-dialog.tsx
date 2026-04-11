@@ -63,22 +63,39 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
   }, [clientId, supabase, userId])
 
   useEffect(() => {
-    if (!projectId) {
-      supabase.from("tasks").select("*").eq("user_id", userId).is("project_id", null).eq("active", true).order("name")
-        .then(({ data }) => setTasks(data ?? []))
-      return
+    if (!userId) return
+
+    async function loadTasks() {
+      const noProjectBase = supabase.from("tasks")
+        .select("*").eq("user_id", userId).is("project_id", null).eq("active", true).order("name")
+
+      const noProjectRes = clientId
+        ? await noProjectBase.or(`client_id.eq.${clientId},client_id.is.null`)
+        : await noProjectBase
+
+      if (!projectId) {
+        setTasks(noProjectRes.data ?? [])
+        return
+      }
+
+      const projRes = await supabase.from("tasks")
+        .select("*").eq("project_id", projectId).eq("active", true).order("name")
+
+      const combined = [...(projRes.data ?? []), ...(noProjectRes.data ?? [])]
+      combined.sort((a: Task, b: Task) => a.name.localeCompare(b.name))
+      setTasks(combined)
     }
-    supabase.from("tasks").select("*").eq("project_id", projectId).eq("active", true).order("name")
-      .then(({ data }) => setTasks(data ?? []))
-  }, [projectId, supabase, userId])
+
+    loadTasks()
+  }, [projectId, clientId, supabase, userId])
 
   async function handleStart() {
-    if (!clientId || !projectId) { toast.error("Bitte Kunde und Projekt auswählen"); return }
+    if (!clientId) { toast.error("Bitte Kunde auswählen"); return }
     setLoading(true)
     const { error } = await supabase.from("active_timers").insert({
       user_id: userId,
       client_id: clientId,
-      project_id: projectId,
+      project_id: projectId || null,
       code,
       description,
       task_id: taskId || null,

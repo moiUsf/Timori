@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Client, Project, Task, BookingItem } from "@/types/database"
 import { Card } from "@/components/ui/card"
@@ -15,23 +15,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Pencil, ChevronRight, ChevronDown, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
-type TaskWithProject = Task & { project?: { name: string } | null }
+type TaskWithProject = Task & { project?: { name: string; client_id?: string } | null }
 
 export default function ClientsPage() {
   const supabase = createClient()
   const [userId, setUserId] = useState("")
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Record<string, Project[]>>({})
-  const [projectTasks, setProjectTasks] = useState<Record<string, Task[]>>({}) // keyed by project_id
-  const [bookingItems, setBookingItems] = useState<Record<string, BookingItem[]>>({}) // keyed by client_id
+  const [projectTasks, setProjectTasks] = useState<Record<string, Task[]>>({})
+  const [bookingItems, setBookingItems] = useState<Record<string, BookingItem[]>>({})
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
 
-  // Second tab state
+  // Tab 2 state
   const [filterClientId, setFilterClientId] = useState("_all")
   const [allTasks, setAllTasks] = useState<TaskWithProject[]>([])
   const [allBookings, setAllBookings] = useState<BookingItem[]>([])
   const [flatProjects, setFlatProjects] = useState<Project[]>([])
+  const [taskSearch, setTaskSearch] = useState("")
+  const [projectSearch, setProjectSearch] = useState("")
 
   // Dialogs
   const [clientDialog, setClientDialog] = useState(false)
@@ -45,36 +47,27 @@ export default function ClientsPage() {
   const [editingBooking, setEditingBooking] = useState<BookingItem | null>(null)
   const [selectedClientId, setSelectedClientId] = useState("")
 
-  const [clientForm, setClientForm] = useState({ name: "", client_nr: "", country: "DE" })
+  const [clientForm, setClientForm] = useState({ name: "", client_nr: "", country: "DE", default_remote: false })
   const [projectForm, setProjectForm] = useState({ name: "", project_nr: "", sub_project: "", category: "", hourly_rate: "" })
-  const [taskForm, setTaskForm] = useState({ name: "", description: "", project_id: "" })
+  const [taskForm, setTaskForm] = useState({ name: "", description: "", project_id: "", client_id: "", default_booking_item_id: "" })
   const [bookingForm, setBookingForm] = useState({ name: "", description: "", client_id: "" })
 
   const loadAllTasks = useCallback(async (uid: string) => {
     const { data } = await supabase
       .from("tasks")
-      .select("*, project:projects(name, client_id)")
+      .select("*, project:projects(name, client_id), default_booking_item:booking_items(id,name)")
       .eq("user_id", uid)
       .order("name")
     setAllTasks((data ?? []) as TaskWithProject[])
   }, [supabase])
 
   const loadAllBookings = useCallback(async (uid: string) => {
-    const { data } = await supabase
-      .from("booking_items")
-      .select("*")
-      .eq("user_id", uid)
-      .order("name")
+    const { data } = await supabase.from("booking_items").select("*").eq("user_id", uid).order("name")
     setAllBookings(data ?? [])
   }, [supabase])
 
   const loadFlatProjects = useCallback(async (uid: string) => {
-    const { data } = await supabase
-      .from("projects")
-      .select("*, client:clients(name)")
-      .eq("user_id", uid)
-      .eq("active", true)
-      .order("name")
+    const { data } = await supabase.from("projects").select("*, client:clients(name)").eq("user_id", uid).eq("active", true).order("name")
     setFlatProjects(data ?? [])
   }, [supabase])
 
@@ -103,7 +96,9 @@ export default function ClientsPage() {
   }
 
   async function loadProjectTasks(projectId: string) {
-    const { data } = await supabase.from("tasks").select("*").eq("project_id", projectId).order("name")
+    const { data } = await supabase.from("tasks")
+      .select("*, default_booking_item:booking_items(id,name)")
+      .eq("project_id", projectId).order("name")
     setProjectTasks((t) => ({ ...t, [projectId]: data ?? [] }))
   }
 
@@ -123,19 +118,38 @@ export default function ClientsPage() {
     })
   }
 
-  // Filtered tasks/bookings for second tab
+  // Filtered data for Tab 2
   const filteredTasks = allTasks.filter((t) => {
-    if (filterClientId === "_all") return true
     const proj = t.project as { name: string; client_id?: string } | null
-    if (filterClientId === "_none") return !t.project_id
-    return proj && (proj as { name: string; client_id?: string }).client_id === filterClientId
+    const matchesClient =
+      filterClientId === "_all" ? true :
+      filterClientId === "_none" ? (!t.project_id && !t.client_id) :
+      (proj?.client_id === filterClientId || t.client_id === filterClientId)
+    const matchesSearch = t.name.toLowerCase().includes(taskSearch.toLowerCase())
+    return matchesClient && matchesSearch
   })
 
   const filteredBookings = allBookings.filter((b) => {
-    if (filterClientId === "_all") return true
-    if (filterClientId === "_none") return !b.client_id
-    return b.client_id === filterClientId
+    const matchesClient =
+      filterClientId === "_all" ? true :
+      filterClientId === "_none" ? !b.client_id :
+      b.client_id === filterClientId
+    return matchesClient
   })
+
+  // Booking items filtered for task dialog (by client derived from project or direct client)
+  const taskDialogBookings = useMemo(() => {
+    const clientId = taskForm.project_id
+      ? flatProjects.find(p => p.id === taskForm.project_id)?.client_id
+      : taskForm.client_id
+    if (!clientId) return allBookings.filter(b => !b.client_id)
+    return allBookings.filter(b => !b.client_id || b.client_id === clientId)
+  }, [taskForm.project_id, taskForm.client_id, allBookings, flatProjects])
+
+  // Project search for Tab 1
+  const searchedProjects = projectSearch.trim()
+    ? flatProjects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase()))
+    : null // null means show accordion
 
   async function saveClient() {
     if (!clientForm.name.trim()) { toast.error("Name erforderlich"); return }
@@ -147,7 +161,7 @@ export default function ClientsPage() {
       toast.success("Kunde erstellt")
     }
     setClientDialog(false); setEditingClient(null)
-    setClientForm({ name: "", client_nr: "", country: "DE" })
+    setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false })
     loadClients(userId)
   }
 
@@ -174,17 +188,21 @@ export default function ClientsPage() {
       name: taskForm.name,
       description: taskForm.description || null,
       project_id: taskForm.project_id || null,
+      client_id: taskForm.project_id ? null : (taskForm.client_id || null),
+      default_booking_item_id: taskForm.default_booking_item_id || null,
       active: true,
     }
     if (editingTask) {
-      await supabase.from("tasks").update(payload).eq("id", editingTask.id)
+      const { error } = await supabase.from("tasks").update(payload).eq("id", editingTask.id)
+      if (error) { toast.error("Fehler: " + error.message); return }
       toast.success("Aufgabe aktualisiert")
     } else {
-      await supabase.from("tasks").insert(payload)
+      const { error } = await supabase.from("tasks").insert(payload)
+      if (error) { toast.error("Fehler: " + error.message); return }
       toast.success("Aufgabe erstellt")
     }
     setTaskDialog(false); setEditingTask(null)
-    setTaskForm({ name: "", description: "", project_id: "" })
+    setTaskForm({ name: "", description: "", project_id: "", client_id: "", default_booking_item_id: "" })
     if (taskForm.project_id) loadProjectTasks(taskForm.project_id)
     loadAllTasks(userId)
   }
@@ -199,10 +217,12 @@ export default function ClientsPage() {
       active: true,
     }
     if (editingBooking) {
-      await supabase.from("booking_items").update(payload).eq("id", editingBooking.id)
+      const { error } = await supabase.from("booking_items").update(payload).eq("id", editingBooking.id)
+      if (error) { toast.error("Fehler: " + error.message); return }
       toast.success("Buchungsposten aktualisiert")
     } else {
-      await supabase.from("booking_items").insert(payload)
+      const { error } = await supabase.from("booking_items").insert(payload)
+      if (error) { toast.error("Fehler: " + error.message); return }
       toast.success("Buchungsposten erstellt")
     }
     setBookingDialog(false); setEditingBooking(null)
@@ -225,7 +245,17 @@ export default function ClientsPage() {
     loadAllBookings(userId)
   }
 
-  // allProjects is now loaded upfront via loadFlatProjects (not lazily from expanded clients)
+  function openEditTask(t: Task) {
+    setEditingTask(t)
+    setTaskForm({
+      name: t.name,
+      description: t.description ?? "",
+      project_id: t.project_id ?? "",
+      client_id: t.client_id ?? "",
+      default_booking_item_id: t.default_booking_item_id ?? "",
+    })
+    setTaskDialog(true)
+  }
 
   return (
     <div className="space-y-6">
@@ -233,7 +263,7 @@ export default function ClientsPage() {
         <h1 className="text-2xl font-bold tracking-tight">Kunden & Projekte</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => {
-            setTaskForm({ name: "", description: "", project_id: "" })
+            setTaskForm({ name: "", description: "", project_id: "", client_id: "", default_booking_item_id: "" })
             setEditingTask(null); setTaskDialog(true)
           }} className="gap-2">
             <Plus className="h-4 w-4" />Aufgabe
@@ -246,7 +276,7 @@ export default function ClientsPage() {
           </Button>
           <Button onClick={() => {
             setEditingClient(null)
-            setClientForm({ name: "", client_nr: "", country: "DE" })
+            setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false })
             setClientDialog(true)
           }} className="gap-2">
             <Plus className="h-4 w-4" />Neuer Kunde
@@ -261,153 +291,251 @@ export default function ClientsPage() {
         </TabsList>
 
         {/* ── Tab 1: Clients & Projects ── */}
-        <TabsContent value="clients" className="space-y-2 mt-4">
-          {clients.map((client) => (
-            <Card key={client.id}>
-              <div className="flex items-center gap-3 p-4 cursor-pointer select-none" onClick={() => toggleClient(client.id)}>
-                {expanded.has(client.id)
-                  ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className="font-medium">{client.name}</span>
-                  {client.client_nr && <span className="text-xs text-muted-foreground">{client.client_nr}</span>}
-                  <Badge variant={client.active ? "success" : "secondary"} className="text-xs">
-                    {client.active ? "Aktiv" : "Inaktiv"}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                  <Switch checked={client.active}
-                    onCheckedChange={async () => {
-                      await supabase.from("clients").update({ active: !client.active }).eq("id", client.id)
-                      loadClients(userId)
-                    }} />
-                  <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-7"
-                    onClick={() => {
-                      setSelectedClientId(client.id)
-                      setBookingForm({ name: "", description: "", client_id: client.id })
-                      setEditingBooking(null); setBookingDialog(true)
-                    }}>
-                    <Plus className="h-3 w-3" />Buchungsposten
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8"
-                    onClick={() => {
-                      setEditingClient(client)
-                      setClientForm({ name: client.name, client_nr: client.client_nr ?? "", country: client.country })
-                      setClientDialog(true)
-                    }}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
+        <TabsContent value="clients" className="space-y-3 mt-4">
+          {/* Project search */}
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Projekte suchen..."
+              value={projectSearch}
+              onChange={e => setProjectSearch(e.target.value)}
+              className="max-w-sm"
+            />
+            {projectSearch && (
+              <Button variant="ghost" size="sm" onClick={() => setProjectSearch("")}>Zurücksetzen</Button>
+            )}
+          </div>
 
-              {expanded.has(client.id) && (
-                <div className="border-t bg-muted/20">
-                  {/* Booking items */}
-                  {(bookingItems[client.id] ?? []).length > 0 && (
-                    <div className="px-6 py-2 border-b">
-                      <p className="text-xs font-medium text-muted-foreground mb-1.5">Buchungsposten</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(bookingItems[client.id] ?? []).map((b) => (
-                          <div key={b.id} className="flex items-center gap-1 rounded border bg-background px-2 py-0.5 text-xs">
-                            <span className="font-mono">{b.name}</span>
-                            {b.description && <span className="text-muted-foreground ml-1">— {b.description}</span>}
-                            <button className="text-muted-foreground hover:text-destructive ml-1"
-                              onClick={() => deleteBooking(b.id, client.id)}>×</button>
-                          </div>
-                        ))}
+          {/* Flat search results */}
+          {searchedProjects !== null ? (
+            <Card>
+              <div className="divide-y">
+                {searchedProjects.length === 0 ? (
+                  <p className="px-4 py-4 text-sm text-muted-foreground">Keine Projekte gefunden</p>
+                ) : searchedProjects.map((p) => {
+                  const clientName = (p as Project & { client?: { name: string } }).client?.name
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{p.name}</span>
+                          {p.project_nr && <span className="text-xs text-muted-foreground">{p.project_nr}</span>}
+                        </div>
+                        {clientName && <p className="text-xs text-muted-foreground">👤 {clientName}</p>}
                       </div>
                     </div>
-                  )}
-
-                  <div className="p-3 flex justify-end">
-                    <Button size="sm" variant="outline" className="gap-1.5"
-                      onClick={() => {
-                        setSelectedClientId(client.id)
-                        setEditingProject(null)
-                        setProjectForm({ name: "", project_nr: "", sub_project: "", category: "", hourly_rate: "" })
-                        setProjectDialog(true)
-                      }}>
-                      <Plus className="h-3.5 w-3.5" />Projekt hinzufügen
-                    </Button>
+                  )
+                })}
+              </div>
+            </Card>
+          ) : (
+            /* Normal accordion */
+            <>
+              {clients.map((client) => (
+                <Card key={client.id}>
+                  <div className="flex items-center gap-3 p-4 cursor-pointer select-none" onClick={() => toggleClient(client.id)}>
+                    {expanded.has(client.id)
+                      ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <span className="font-medium">{client.name}</span>
+                      {client.client_nr && <span className="text-xs text-muted-foreground">{client.client_nr}</span>}
+                      <Badge variant={client.active ? "success" : "secondary"} className="text-xs">
+                        {client.active ? "Aktiv" : "Inaktiv"}
+                      </Badge>
+                      {client.default_remote && (
+                        <Badge variant="outline" className="text-xs">Remote</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Switch checked={client.active}
+                        onCheckedChange={async () => {
+                          await supabase.from("clients").update({ active: !client.active }).eq("id", client.id)
+                          loadClients(userId)
+                        }} />
+                      <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-7"
+                        onClick={() => {
+                          setSelectedClientId(client.id)
+                          setBookingForm({ name: "", description: "", client_id: client.id })
+                          setEditingBooking(null); setBookingDialog(true)
+                        }}>
+                        <Plus className="h-3 w-3" />Buchungsposten
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8"
+                        onClick={() => {
+                          setEditingClient(client)
+                          setClientForm({ name: client.name, client_nr: client.client_nr ?? "", country: client.country, default_remote: client.default_remote ?? false })
+                          setClientDialog(true)
+                        }}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="divide-y">
-                    {(projects[client.id] ?? []).map((p) => (
-                      <div key={p.id}>
-                        <div className="flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-muted/20"
-                          onClick={() => toggleProject(p.id)}>
-                          {expandedProjects.has(p.id)
-                            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">{p.name}</span>
-                              {p.project_nr && <span className="text-xs text-muted-foreground">{p.project_nr}</span>}
-                              {p.sub_project && <span className="text-xs text-muted-foreground">/ {p.sub_project}</span>}
-                            </div>
-                            {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
-                          </div>
-                          {p.hourly_rate && <span className="text-xs text-muted-foreground">{p.hourly_rate} €/h</span>}
-                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="sm" className="gap-1 text-xs h-7"
-                              onClick={() => {
-                                setTaskForm({ name: "", description: "", project_id: p.id })
-                                setEditingTask(null); setTaskDialog(true)
-                              }}>
-                              <Plus className="h-3 w-3" />Aufgabe
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7"
-                              onClick={() => {
-                                setSelectedClientId(client.id)
-                                setEditingProject(p)
-                                setProjectForm({ name: p.name, project_nr: p.project_nr ?? "", sub_project: p.sub_project ?? "", category: p.category ?? "", hourly_rate: p.hourly_rate?.toString() ?? "" })
-                                setProjectDialog(true)
-                              }}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
+                  {expanded.has(client.id) && (
+                    <div className="border-t bg-muted/20">
+                      {/* Buchungsposten section */}
+                      <div className="border-b">
+                        <div className="px-6 py-2 flex items-center justify-between">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Buchungsposten</p>
                         </div>
-
-                        {expandedProjects.has(p.id) && (
-                          <div className="bg-muted/10 px-10 py-2 space-y-1">
-                            {(projectTasks[p.id] ?? []).length === 0
-                              ? <p className="text-xs text-muted-foreground">Keine Aufgaben</p>
-                              : (projectTasks[p.id] ?? []).map((t) => (
-                                <div key={t.id} className="flex items-center gap-2 text-xs py-0.5 group">
-                                  <span className="flex-1 font-medium">{t.name}</span>
-                                  {t.description && <span className="text-muted-foreground">{t.description}</span>}
-                                  <button
-                                    className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => deleteTask(t.id, p.id)}>
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
+                        {(bookingItems[client.id] ?? []).length === 0 ? (
+                          <p className="px-6 pb-3 text-xs text-muted-foreground">Keine Buchungsposten</p>
+                        ) : (
+                          <div className="divide-y">
+                            {(bookingItems[client.id] ?? []).map((b) => (
+                              <div key={b.id} className="flex items-center gap-3 px-6 py-2 group">
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-sm font-mono">{b.name}</span>
+                                  {b.description && <span className="text-xs text-muted-foreground ml-2">— {b.description}</span>}
                                 </div>
-                              ))
-                            }
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7"
+                                    onClick={() => {
+                                      setEditingBooking(b)
+                                      setBookingForm({ name: b.name, description: b.description ?? "", client_id: client.id })
+                                      setBookingDialog(true)
+                                    }}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={() => deleteBooking(b.id, client.id)}>
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
-                    ))}
-                    {(projects[client.id] ?? []).length === 0 && (
-                      <p className="px-6 py-3 text-xs text-muted-foreground">Keine Projekte</p>
-                    )}
-                  </div>
-                </div>
+
+                      {/* Projekte section */}
+                      <div className="p-3 flex items-center justify-between border-b">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3">Projekte</p>
+                        <Button size="sm" variant="outline" className="gap-1.5"
+                          onClick={() => {
+                            setSelectedClientId(client.id)
+                            setEditingProject(null)
+                            setProjectForm({ name: "", project_nr: "", sub_project: "", category: "", hourly_rate: "" })
+                            setProjectDialog(true)
+                          }}>
+                          <Plus className="h-3.5 w-3.5" />Projekt hinzufügen
+                        </Button>
+                      </div>
+
+                      <div className="divide-y">
+                        {(projects[client.id] ?? []).map((p) => (
+                          <div key={p.id}>
+                            <div className="flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-muted/20"
+                              onClick={() => toggleProject(p.id)}>
+                              {expandedProjects.has(p.id)
+                                ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">{p.name}</span>
+                                  {p.project_nr && <span className="text-xs text-muted-foreground">{p.project_nr}</span>}
+                                  {p.sub_project && <span className="text-xs text-muted-foreground">/ {p.sub_project}</span>}
+                                </div>
+                                {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
+                              </div>
+                              {p.hourly_rate && <span className="text-xs text-muted-foreground">{p.hourly_rate} €/h</span>}
+                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="sm" className="gap-1 text-xs h-7"
+                                  onClick={() => {
+                                    setTaskForm({ name: "", description: "", project_id: p.id, client_id: "", default_booking_item_id: "" })
+                                    setEditingTask(null); setTaskDialog(true)
+                                  }}>
+                                  <Plus className="h-3 w-3" />Aufgabe
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7"
+                                  onClick={() => {
+                                    setSelectedClientId(client.id)
+                                    setEditingProject(p)
+                                    setProjectForm({ name: p.name, project_nr: p.project_nr ?? "", sub_project: p.sub_project ?? "", category: p.category ?? "", hourly_rate: p.hourly_rate?.toString() ?? "" })
+                                    setProjectDialog(true)
+                                  }}>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {expandedProjects.has(p.id) && (
+                              <div className="bg-muted/10 px-10 py-2 space-y-1">
+                                {(projectTasks[p.id] ?? []).length === 0
+                                  ? <p className="text-xs text-muted-foreground">Keine Aufgaben</p>
+                                  : (projectTasks[p.id] ?? []).map((t) => (
+                                    <div key={t.id} className="flex items-center gap-2 text-xs py-0.5 group">
+                                      <span className="flex-1 font-medium">{t.name}</span>
+                                      {t.description && <span className="text-muted-foreground">{t.description}</span>}
+                                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button className="text-muted-foreground hover:text-foreground"
+                                          onClick={() => openEditTask(t)}>
+                                          <Pencil className="h-3 w-3" />
+                                        </button>
+                                        <button className="text-muted-foreground hover:text-destructive"
+                                          onClick={() => deleteTask(t.id, p.id)}>
+                                          <Trash2 className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))
+                                }
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {(projects[client.id] ?? []).length === 0 && (
+                          <p className="px-6 py-3 text-xs text-muted-foreground">Keine Projekte</p>
+                        )}
+
+                        {/* ── Aufgaben ohne Projektzuordnung ── */}
+                        {(() => {
+                          const unassigned = allTasks.filter(t => t.project_id === null && t.client_id === client.id)
+                          if (unassigned.length === 0) return null
+                          return (
+                            <div className="border-t">
+                              <div className="px-4 py-2 bg-muted/20">
+                                <p className="text-xs font-semibold text-muted-foreground">Aufgaben ohne Projekt</p>
+                              </div>
+                              <div className="px-10 py-2 space-y-1">
+                                {unassigned.map((t) => (
+                                  <div key={t.id} className="flex items-center gap-2 text-xs py-0.5 group">
+                                    <span className="flex-1 font-medium">{t.name}</span>
+                                    {t.description && <span className="text-muted-foreground">{t.description}</span>}
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button className="text-muted-foreground hover:text-foreground"
+                                        onClick={() => openEditTask(t)}>
+                                        <Pencil className="h-3 w-3" />
+                                      </button>
+                                      <button className="text-muted-foreground hover:text-destructive"
+                                        onClick={() => deleteTask(t.id, null)}>
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              ))}
+              {clients.length === 0 && (
+                <p className="text-center text-muted-foreground py-8 text-sm">Noch keine Kunden.</p>
               )}
-            </Card>
-          ))}
-          {clients.length === 0 && (
-            <p className="text-center text-muted-foreground py-8 text-sm">Noch keine Kunden.</p>
+            </>
           )}
         </TabsContent>
 
-        {/* ── Tab 2: Tasks & Booking Items with client filter ── */}
+        {/* ── Tab 2: Tasks & Booking Items ── */}
         <TabsContent value="tasks" className="mt-4 space-y-4">
-          {/* Client filter */}
-          <div className="flex items-center gap-3">
-            <Label className="shrink-0 text-sm">Kunde filtern:</Label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Label className="shrink-0 text-sm">Kunde:</Label>
             <Select value={filterClientId} onValueChange={setFilterClientId}>
-              <SelectTrigger className="w-56">
+              <SelectTrigger className="w-48">
                 <SelectValue placeholder="Alle Kunden" />
               </SelectTrigger>
               <SelectContent>
@@ -426,25 +554,30 @@ export default function ClientsPage() {
           <div className="grid grid-cols-2 gap-4">
             {/* Tasks */}
             <Card>
-              <div className="p-4 border-b flex items-center justify-between">
-                <h3 className="font-medium text-sm">Aufgaben</h3>
-                <Button size="sm" variant="outline" className="gap-1.5"
-                  onClick={() => {
-                    setTaskForm({
-                      name: "",
-                      description: "",
-                      project_id: filterClientId !== "_all" && filterClientId !== "_none" ? "" : "",
-                    })
-                    setEditingTask(null); setTaskDialog(true)
-                  }}>
-                  <Plus className="h-3.5 w-3.5" />Hinzufügen
-                </Button>
+              <div className="p-4 border-b space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-sm">Aufgaben</h3>
+                  <Button size="sm" variant="outline" className="gap-1.5"
+                    onClick={() => {
+                      setTaskForm({ name: "", description: "", project_id: "", client_id: "", default_booking_item_id: "" })
+                      setEditingTask(null); setTaskDialog(true)
+                    }}>
+                    <Plus className="h-3.5 w-3.5" />Hinzufügen
+                  </Button>
+                </div>
+                <Input
+                  placeholder="Aufgaben suchen..."
+                  value={taskSearch}
+                  onChange={e => setTaskSearch(e.target.value)}
+                  className="h-8 text-sm"
+                />
               </div>
               <div className="divide-y max-h-96 overflow-y-auto">
                 {filteredTasks.length === 0
                   ? <p className="px-4 py-4 text-xs text-muted-foreground">Keine Aufgaben</p>
                   : filteredTasks.map((t) => {
                     const proj = t.project as { name: string } | null
+                    const defaultBooking = (t as Task & { default_booking_item?: { name: string } | null }).default_booking_item
                     return (
                       <div key={t.id} className="flex items-center gap-2 px-4 py-2.5 group">
                         <div className="flex-1 min-w-0">
@@ -452,8 +585,13 @@ export default function ClientsPage() {
                           {proj && <p className="text-xs text-muted-foreground truncate">📁 {proj.name}</p>}
                           {!t.project_id && <p className="text-xs text-muted-foreground">Ohne Projekt</p>}
                           {t.description && <p className="text-xs text-muted-foreground truncate">{t.description}</p>}
+                          {defaultBooking && <p className="text-xs text-muted-foreground font-mono truncate">🔖 {defaultBooking.name}</p>}
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                            onClick={() => openEditTask(t)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
                             onClick={() => deleteTask(t.id, t.project_id)}>
                             <Trash2 className="h-3.5 w-3.5" />
@@ -496,6 +634,14 @@ export default function ClientsPage() {
                           {b.description && <p className="text-xs text-muted-foreground truncate">{b.description}</p>}
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                            onClick={() => {
+                              setEditingBooking(b)
+                              setBookingForm({ name: b.name, description: b.description ?? "", client_id: b.client_id ?? "" })
+                              setBookingDialog(true)
+                            }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
                             onClick={() => deleteBooking(b.id, b.client_id)}>
                             <Trash2 className="h-3.5 w-3.5" />
@@ -519,6 +665,13 @@ export default function ClientsPage() {
             <div className="space-y-2"><Label>Name *</Label><Input value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} /></div>
             <div className="space-y-2"><Label>Kundennummer</Label><Input value={clientForm.client_nr} onChange={(e) => setClientForm({ ...clientForm, client_nr: e.target.value })} /></div>
             <div className="space-y-2"><Label>Land</Label><Input value={clientForm.country} onChange={(e) => setClientForm({ ...clientForm, country: e.target.value })} maxLength={2} /></div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Remote Standard</p>
+                <p className="text-xs text-muted-foreground">Wird bei der Zeiterfassung vorausgefüllt</p>
+              </div>
+              <Switch checked={clientForm.default_remote} onCheckedChange={(v) => setClientForm({ ...clientForm, default_remote: v })} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setClientDialog(false)}>Abbrechen</Button>
@@ -564,11 +717,33 @@ export default function ClientsPage() {
             </div>
             <div className="space-y-2">
               <Label>Projekt (optional)</Label>
-              <Select value={taskForm.project_id || "_none"} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === "_none" ? "" : v })}>
+              <Select value={taskForm.project_id || "_none"} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === "_none" ? "" : v, client_id: v !== "_none" ? "" : taskForm.client_id })}>
                 <SelectTrigger><SelectValue placeholder="Kein Projekt" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">— Kein Projekt —</SelectItem>
                   {flatProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {!taskForm.project_id && (
+              <div className="space-y-2">
+                <Label>Kunde (optional)</Label>
+                <Select value={taskForm.client_id || "_none"} onValueChange={(v) => setTaskForm({ ...taskForm, client_id: v === "_none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Kein Kunde" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— Kein Kunde —</SelectItem>
+                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Standard-Buchungsposten (optional)</Label>
+              <Select value={taskForm.default_booking_item_id || "_none"} onValueChange={(v) => setTaskForm({ ...taskForm, default_booking_item_id: v === "_none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Kein Standard-Buchungsposten" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— Keiner —</SelectItem>
+                  {taskDialogBookings.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import type { TimeEntry, Client, Project, Task } from "@/types/database"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,6 +38,8 @@ const emptyForm = () => ({
 
 export default function TimePage() {
   const supabase = createClient()
+  const t = useTranslations("time")
+  const tCommon = useTranslations("common")
   const [entries, setEntries] = useState<EntryWithRelations[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -83,7 +86,6 @@ export default function TimePage() {
 
   useEffect(() => { if (userId) loadEntries() }, [userId, loadEntries])
 
-  // Load projects + booking items when client changes
   useEffect(() => {
     if (!form.client_id || !userId) { setProjects([]); setBookingItems([]); return }
     Promise.all([
@@ -98,12 +100,10 @@ export default function TimePage() {
     })
   }, [form.client_id, supabase, userId])
 
-  // Load tasks when project or client changes
   useEffect(() => {
     if (!userId) return
 
     async function loadTasks() {
-      // Tasks without project: match client or have no client
       const noProjectBase = supabase.from("tasks")
         .select("*, default_booking_item:booking_items(id,name)")
         .eq("user_id", userId).is("project_id", null).eq("active", true).order("name")
@@ -193,12 +193,12 @@ export default function TimePage() {
 
     if (editingEntry) {
       const { error } = await supabase.from("time_entries").update(payload).eq("id", editingEntry.id)
-      if (error) { toast.error("Fehler: " + error.message); return }
-      toast.success("Eintrag aktualisiert")
+      if (error) { toast.error(t("errorSave", { message: error.message })); return }
+      toast.success(t("updated"))
     } else {
       const { error } = await supabase.from("time_entries").insert({ ...payload, user_id: userId })
-      if (error) { toast.error("Fehler: " + error.message); return }
-      toast.success("Zeiteintrag gespeichert")
+      if (error) { toast.error(t("errorSave", { message: error.message })); return }
+      toast.success(t("saved"))
     }
     setShowForm(false)
     setEditingEntry(null)
@@ -209,11 +209,10 @@ export default function TimePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.client_id) {
-      toast.error("Bitte Kunde auswählen")
+      toast.error(t("errorNoClient"))
       return
     }
 
-    // Check for overlapping entries (same client, same date, overlapping time range)
     let overlapQuery = supabase
       .from("time_entries")
       .select("*, client:clients(*), project:projects(*), task:tasks(*)")
@@ -240,8 +239,27 @@ export default function TimePage() {
 
   async function handleDelete(id: string) {
     await supabase.from("time_entries").delete().eq("id", id)
-    toast.success("Eintrag gelöscht")
+    toast.success(t("deleted"))
     loadEntries()
+  }
+
+  // Group entries by client, then by date
+  function groupByClientAndDate(entries: EntryWithRelations[]) {
+    const clientMap = new Map<string, { clientName: string; totalNet: number; dates: Map<string, EntryWithRelations[]> }>()
+    for (const entry of entries) {
+      const cId = entry.client_id
+      const cName = entry.client?.name ?? cId
+      if (!clientMap.has(cId)) {
+        clientMap.set(cId, { clientName: cName, totalNet: 0, dates: new Map() })
+      }
+      const cGroup = clientMap.get(cId)!
+      cGroup.totalNet += entry.net_h
+      if (!cGroup.dates.has(entry.date)) {
+        cGroup.dates.set(entry.date, [])
+      }
+      cGroup.dates.get(entry.date)!.push(entry)
+    }
+    return Array.from(clientMap.entries()).sort((a, b) => a[1].clientName.localeCompare(b[1].clientName))
   }
 
   const filteredProjects = projects.filter(p =>
@@ -253,22 +271,23 @@ export default function TimePage() {
 
   const totalHours = entries.reduce((s, e) => s + e.net_h, 0)
   const monthLabel = currentDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" })
+  const grouped = groupByClientAndDate(entries)
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Zeiterfassung</h1>
-          <p className="text-muted-foreground">Manuelle Zeiteinträge</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setReportDialogOpen(true)} className="gap-2">
             <FileText className="h-4 w-4" />
-            Bericht exportieren
+            {t("exportReport")}
           </Button>
           <Button onClick={openNew} className="gap-2">
             <Plus className="h-4 w-4" />
-            Neuer Eintrag
+            {t("newEntry")}
           </Button>
         </div>
       </div>
@@ -277,36 +296,34 @@ export default function TimePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              {editingEntry ? "Eintrag bearbeiten" : "Neuer Zeiteintrag"}
+              {editingEntry ? t("editEntry") : t("newTimeEntry")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              {/* Row 1 */}
               <div className="space-y-2">
-                <Label>Datum</Label>
+                <Label>{t("date")}</Label>
                 <Input type="date" value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Von</Label>
+                <Label>{t("from")}</Label>
                 <Input type="time" value={form.time_from}
                   onChange={(e) => setForm({ ...form, time_from: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Bis</Label>
+                <Label>{t("to")}</Label>
                 <Input type="time" value={form.time_to}
                   onChange={(e) => setForm({ ...form, time_to: e.target.value })} />
               </div>
 
-              {/* Row 2 */}
               <div className="space-y-2">
-                <Label>Pause (Min)</Label>
+                <Label>{t("break")}</Label>
                 <Input type="number" min="0" value={form.break_min}
                   onChange={(e) => setForm({ ...form, break_min: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Kunde</Label>
+                <Label>{t("client")}</Label>
                 <Select value={form.client_id}
                   onValueChange={(v) => {
                     const selectedClient = clients.find(c => c.id === v)
@@ -315,14 +332,14 @@ export default function TimePage() {
                     setProjectSearch("")
                     setTaskSearch("")
                   }}>
-                  <SelectTrigger><SelectValue placeholder="Kunde wählen..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("clientPlaceholder")} /></SelectTrigger>
                   <SelectContent>
                     {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Projekt</Label>
+                <Label>{t("project")}</Label>
                 <Select value={form.project_id || "_none"}
                   onValueChange={(v) => {
                     setForm({ ...form, project_id: v === "_none" ? "" : v, task_id: "" })
@@ -331,54 +348,53 @@ export default function TimePage() {
                     setTaskSearch("")
                   }}
                   disabled={!form.client_id}>
-                  <SelectTrigger><SelectValue placeholder="Projekt wählen..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("projectPlaceholder")} /></SelectTrigger>
                   <SelectContent>
                     <div className="p-2 border-b">
                       <Input
-                        placeholder="Suchen..."
+                        placeholder={tCommon("search")}
                         value={projectSearch}
                         onChange={e => setProjectSearch(e.target.value)}
                         onKeyDown={e => e.stopPropagation()}
                         className="h-7 text-sm"
                       />
                     </div>
-                    <SelectItem value="_none">— Kein Projekt —</SelectItem>
+                    <SelectItem value="_none">{t("noProject")}</SelectItem>
                     {filteredProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     {filteredProjects.length === 0 && projectSearch && (
-                      <p className="py-2 text-center text-xs text-muted-foreground">Keine Treffer</p>
+                      <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
                     )}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Row 3 — Aufgabe + Buchungsposten */}
               <div className="space-y-2">
-                <Label>Aufgabe (optional)</Label>
+                <Label>{t("task")}</Label>
                 <Select value={form.task_id || "_none"} onValueChange={handleTaskSelect}>
-                  <SelectTrigger><SelectValue placeholder="Aufgabe wählen..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("taskPlaceholder")} /></SelectTrigger>
                   <SelectContent>
                     <div className="p-2 border-b">
                       <Input
-                        placeholder="Suchen..."
+                        placeholder={tCommon("search")}
                         value={taskSearch}
                         onChange={e => setTaskSearch(e.target.value)}
                         onKeyDown={e => e.stopPropagation()}
                         className="h-7 text-sm"
                       />
                     </div>
-                    <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
+                    <SelectItem value="_none">{t("noTask")}</SelectItem>
                     {filteredTasks.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                     {filteredTasks.length === 0 && taskSearch && (
-                      <p className="py-2 text-center text-xs text-muted-foreground">Keine Treffer</p>
+                      <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
                     )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2 col-span-2">
-                <Label>Buchungsposten (optional)</Label>
+                <Label>{t("bookingItem")}</Label>
                 {bookingItemAutoSet && (
-                  <p className="text-xs text-amber-600 font-medium">Automatisch gesetzt — bitte prüfen</p>
+                  <p className="text-xs text-amber-600 font-medium">{t("bookingItemAutoSet")}</p>
                 )}
                 {bookingItems.length > 0 ? (
                   <Select value={form.booking_item_text || "_manual"}
@@ -387,10 +403,10 @@ export default function TimePage() {
                       setBookingItemAutoSet(false)
                     }}>
                     <SelectTrigger className={bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : ""}>
-                      <SelectValue placeholder="Buchungsposten wählen..." />
+                      <SelectValue placeholder={t("bookingItemPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_manual">— Manuell eingeben —</SelectItem>
+                      <SelectItem value="_manual">{t("bookingItemManual")}</SelectItem>
                       {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -406,7 +422,7 @@ export default function TimePage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Code</Label>
+                <Label>{t("code")}</Label>
                 <Select value={form.code}
                   onValueChange={(v) => setForm({ ...form, code: v as typeof HOUR_CODES[number] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -416,27 +432,26 @@ export default function TimePage() {
                 </Select>
               </div>
 
-              {/* Row 4 */}
               <div className="space-y-2 col-span-2 md:col-span-2">
-                <Label>Beschreibung</Label>
-                <Input placeholder="Tätigkeit..." value={form.description}
+                <Label>{t("description")}</Label>
+                <Input placeholder={t("descriptionPlaceholder")} value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
               <div className="space-y-2 flex items-center gap-3 pt-6">
                 <Switch checked={form.remote} onCheckedChange={(v) => setForm({ ...form, remote: v })} />
-                <Label>Remote</Label>
+                <Label>{t("remote")}</Label>
               </div>
 
               <div className="col-span-full flex justify-between items-center pt-2">
                 {form.time_from && form.time_to && (
                   <span className="text-sm text-muted-foreground">
-                    Netto: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to, parseInt(form.break_min || "0")))}</strong>
-                    {" "}/ Brutto: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to))}</strong>
+                    {t("net")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to, parseInt(form.break_min || "0")))}</strong>
+                    {" "}/ {t("gross")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to))}</strong>
                   </span>
                 )}
                 <div className="flex gap-2 ml-auto">
-                  <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingEntry(null) }}>Abbrechen</Button>
-                  <Button type="submit">{editingEntry ? "Aktualisieren" : "Speichern"}</Button>
+                  <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingEntry(null) }}>{tCommon("cancel")}</Button>
+                  <Button type="submit">{editingEntry ? tCommon("update") : tCommon("save")}</Button>
                 </div>
               </div>
             </form>
@@ -450,7 +465,7 @@ export default function TimePage() {
             <CardTitle className="text-base">{monthLabel}</CardTitle>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">
-                Gesamt: <strong>{formatHours(totalHours)}</strong>
+                {t("total")}: <strong>{formatHours(totalHours)}</strong>
               </span>
               <Button variant="outline" size="icon" className="h-8 w-8"
                 onClick={() => setCurrentDate(new Date(year, month - 2, 1))}>
@@ -465,46 +480,65 @@ export default function TimePage() {
         </CardHeader>
         <CardContent className="p-0">
           {entries.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Keine Einträge in diesem Monat</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t("noEntriesThisMonth")}</p>
           ) : (
-            <div className="divide-y">
-              {entries.map((entry) => (
-                <div key={entry.id} className="flex items-start gap-3 px-6 py-3 hover:bg-muted/30 group">
-                  <div className="w-20 shrink-0 text-sm text-muted-foreground pt-0.5">
-                    {formatDate(entry.date)}
+            <div>
+              {grouped.map(([clientId, { clientName, totalNet, dates }]) => (
+                <div key={clientId}>
+                  {/* Client header */}
+                  <div className="flex items-center justify-between px-6 py-2 bg-muted/50 border-y">
+                    <span className="text-sm font-semibold">{clientName}</span>
+                    <span className="text-xs text-muted-foreground font-mono">{formatHours(totalNet)}</span>
                   </div>
-                  <div className="w-24 shrink-0 text-sm text-muted-foreground font-mono pt-0.5">
-                    {entry.time_from}–{entry.time_to}
-                  </div>
-                  <Badge variant="outline" className="shrink-0 text-xs mt-0.5">{entry.code}</Badge>
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium">{entry.client?.name}</span>
-                      <span className="text-xs text-muted-foreground">/ {entry.project?.name}</span>
-                      {entry.task && (
-                        <Badge variant="secondary" className="text-xs">📋 {entry.task.name}</Badge>
-                      )}
-                    </div>
-                    {entry.booking_item_text && (
-                      <p className="text-xs text-muted-foreground font-mono">{entry.booking_item_text}</p>
-                    )}
-                    {entry.description && (
-                      <p className="text-xs text-muted-foreground">{entry.description}</p>
-                    )}
-                  </div>
-                  {entry.remote && <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">Remote</Badge>}
-                  <span className="text-sm font-medium shrink-0 w-12 text-right pt-0.5">
-                    {formatHours(entry.net_h)}
-                  </span>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
-                      onClick={() => openEdit(entry)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDelete(entry.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                  {/* Date groups */}
+                  <div className="divide-y">
+                    {Array.from(dates.entries())
+                      .sort(([a], [b]) => b.localeCompare(a))
+                      .map(([date, dayEntries]) => (
+                        <div key={date}>
+                          {dayEntries.map((entry) => (
+                            <div key={entry.id} className="flex items-start gap-3 px-6 py-3 hover:bg-muted/30 group">
+                              <div className="w-20 shrink-0 text-sm text-muted-foreground pt-0.5">
+                                {formatDate(entry.date)}
+                              </div>
+                              <div className="w-24 shrink-0 text-sm text-muted-foreground font-mono pt-0.5">
+                                {entry.time_from}–{entry.time_to}
+                              </div>
+                              <Badge variant="outline" className="shrink-0 text-xs mt-0.5">{entry.code}</Badge>
+                              <div className="flex-1 min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {entry.project?.name && (
+                                    <span className="text-xs text-muted-foreground">/ {entry.project.name}</span>
+                                  )}
+                                  {entry.task && (
+                                    <Badge variant="secondary" className="text-xs">📋 {entry.task.name}</Badge>
+                                  )}
+                                </div>
+                                {entry.booking_item_text && (
+                                  <p className="text-xs text-muted-foreground font-mono">{entry.booking_item_text}</p>
+                                )}
+                                {entry.description && (
+                                  <p className="text-xs text-muted-foreground">{entry.description}</p>
+                                )}
+                              </div>
+                              {entry.remote && <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">Remote</Badge>}
+                              <span className="text-sm font-medium shrink-0 w-12 text-right pt-0.5">
+                                {formatHours(entry.net_h)}
+                              </span>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                                  onClick={() => openEdit(entry)}>
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleDelete(entry.id)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
                   </div>
                 </div>
               ))}
@@ -518,13 +552,11 @@ export default function TimePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Zeitüberschneidung
+              {t("overlapTitle")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">
-              Für diesen Kunden existieren bereits Einträge im gleichen Zeitraum:
-            </p>
+            <p className="text-sm text-muted-foreground">{t("overlapDescription")}</p>
             <div className="rounded-md border divide-y">
               {overlapConflicts.map((c) => (
                 <div key={c.id} className="px-3 py-2 text-sm space-y-0.5">
@@ -550,11 +582,11 @@ export default function TimePage() {
                 </div>
               ))}
             </div>
-            <p className="text-sm">Trotzdem speichern?</p>
+            <p className="text-sm">{t("overlapQuestion")}</p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOverlapDialog(false)}>Abbrechen</Button>
-            <Button variant="destructive" onClick={doSave}>Trotzdem speichern</Button>
+            <Button variant="outline" onClick={() => setShowOverlapDialog(false)}>{tCommon("cancel")}</Button>
+            <Button variant="destructive" onClick={doSave}>{t("overlapSave")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

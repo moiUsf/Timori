@@ -1,34 +1,49 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import type { VacationEntry, UserProfile } from "@/types/database"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatDate } from "@/lib/utils"
-import { Plus, Trash2, Umbrella, BookOpen, Heart, GraduationCap } from "lucide-react"
+import { Plus, Trash2, Pencil, Umbrella, BookOpen, Heart, GraduationCap } from "lucide-react"
 import { toast } from "sonner"
 
-const TYPE_CONFIG = {
-  annual:   { label: "Jahresurlaub",       icon: Umbrella,       color: "bg-blue-100 text-blue-800" },
-  special:  { label: "Sonderurlaub",        icon: Heart,          color: "bg-purple-100 text-purple-800" },
-  training: { label: "Ausbildung/Schulung", icon: GraduationCap,  color: "bg-green-100 text-green-800" },
-  illness:  { label: "Krankheit",           icon: BookOpen,       color: "bg-red-100 text-red-800" },
+type VacationForm = {
+  type: string
+  date_from: string
+  date_to: string
+  days: string
+  notes: string
 }
+
+const emptyForm = (): VacationForm => ({
+  type: "annual", date_from: "", date_to: "", days: "", notes: "",
+})
 
 export default function VacationPage() {
   const supabase = createClient()
+  const t = useTranslations("vacation")
+  const tCommon = useTranslations("common")
   const [userId, setUserId] = useState("")
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [entries, setEntries] = useState<VacationEntry[]>([])
   const [year, setYear] = useState(new Date().getFullYear())
   const [dialog, setDialog] = useState(false)
-  const [form, setForm] = useState({ type: "annual", date_from: "", date_to: "", days: "", notes: "" })
+  const [editingEntry, setEditingEntry] = useState<VacationEntry | null>(null)
+  const [form, setForm] = useState<VacationForm>(emptyForm())
+
+  const TYPE_CONFIG = {
+    annual:   { label: t("types.annual"),   icon: Umbrella,       color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+    special:  { label: t("types.special"),   icon: Heart,          color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
+    training: { label: t("types.training"), icon: GraduationCap,  color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+    illness:  { label: t("types.illness"),  icon: BookOpen,       color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200" },
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -52,7 +67,6 @@ export default function VacationPage() {
     setEntries(data ?? [])
   }
 
-  // Auto-calculate days when dates change
   useEffect(() => {
     if (form.date_from && form.date_to) {
       const from = new Date(form.date_from)
@@ -70,28 +84,64 @@ export default function VacationPage() {
 
   async function handleSave() {
     if (!form.date_from || !form.date_to || !form.days) {
-      toast.error("Bitte alle Pflichtfelder ausfüllen")
+      toast.error(t("errorRequired"))
       return
     }
-    const { error } = await supabase.from("vacation_entries").insert({
-      user_id: userId,
-      type: form.type as VacationEntry["type"],
-      date_from: form.date_from,
-      date_to: form.date_to,
-      days: parseFloat(form.days),
-      notes: form.notes || null,
-    })
-    if (error) { toast.error(error.message); return }
-    toast.success("Eintrag gespeichert")
-    setDialog(false)
-    setForm({ type: "annual", date_from: "", date_to: "", days: "", notes: "" })
+
+    if (editingEntry) {
+      const { error } = await supabase.from("vacation_entries").update({
+        type: form.type as VacationEntry["type"],
+        date_from: form.date_from,
+        date_to: form.date_to,
+        days: parseFloat(form.days),
+        notes: form.notes || null,
+      }).eq("id", editingEntry.id)
+      if (error) { toast.error(error.message); return }
+    } else {
+      const { error } = await supabase.from("vacation_entries").insert({
+        user_id: userId,
+        type: form.type as VacationEntry["type"],
+        date_from: form.date_from,
+        date_to: form.date_to,
+        days: parseFloat(form.days),
+        notes: form.notes || null,
+      })
+      if (error) { toast.error(error.message); return }
+    }
+
+    toast.success(t("saved"))
+    closeDialog()
     loadEntries(userId, year)
   }
 
   async function handleDelete(id: string) {
     await supabase.from("vacation_entries").delete().eq("id", id)
-    toast.success("Eintrag gelöscht")
+    toast.success(t("deleted"))
     loadEntries(userId, year)
+  }
+
+  function openNew() {
+    setEditingEntry(null)
+    setForm(emptyForm())
+    setDialog(true)
+  }
+
+  function openEdit(entry: VacationEntry) {
+    setEditingEntry(entry)
+    setForm({
+      type: entry.type,
+      date_from: entry.date_from,
+      date_to: entry.date_to,
+      days: String(entry.days),
+      notes: entry.notes ?? "",
+    })
+    setDialog(true)
+  }
+
+  function closeDialog() {
+    setDialog(false)
+    setEditingEntry(null)
+    setForm(emptyForm())
   }
 
   const byType = (type: string) => entries.filter((e) => e.type === type)
@@ -104,8 +154,8 @@ export default function VacationPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Urlaub & Abwesenheit</h1>
-          <p className="text-muted-foreground">Jahr {year}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("year", { year })}</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={String(year)} onValueChange={(v) => { setYear(parseInt(v)); loadEntries(userId, parseInt(v)) }}>
@@ -114,9 +164,9 @@ export default function VacationPage() {
               {[year - 1, year, year + 1].map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button onClick={() => setDialog(true)} className="gap-2">
+          <Button onClick={openNew} className="gap-2">
             <Plus className="h-4 w-4" />
-            Eintrag
+            {t("newEntry")}
           </Button>
         </div>
       </div>
@@ -125,11 +175,11 @@ export default function VacationPage() {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Jahresurlaub</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("annualVacation")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{quota - totalAnnual}</div>
-            <p className="text-xs text-muted-foreground">{totalAnnual} von {quota} Tagen genommen</p>
+            <p className="text-xs text-muted-foreground">{t("daysTaken", { taken: totalAnnual, quota })}</p>
             <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
               <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.min(100, totalAnnual / quota * 100)}%` }} />
             </div>
@@ -137,20 +187,20 @@ export default function VacationPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Krankheitstage</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("sickDays")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalIllness}</div>
-            <p className="text-xs text-muted-foreground">Tage in {year}</p>
+            <p className="text-xs text-muted-foreground">{t("daysInYear", { year })}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Schulungen</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("trainings")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totalTraining}</div>
-            <p className="text-xs text-muted-foreground">Tage in {year}</p>
+            <p className="text-xs text-muted-foreground">{t("daysInYear", { year })}</p>
           </CardContent>
         </Card>
       </div>
@@ -158,15 +208,15 @@ export default function VacationPage() {
       {/* Entry list */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Einträge {year}</CardTitle>
+          <CardTitle className="text-base">{t("entries", { year })}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {entries.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Keine Einträge</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t("noEntries")}</p>
           ) : (
             <div className="divide-y">
               {entries.map((entry) => {
-                const config = TYPE_CONFIG[entry.type]
+                const config = TYPE_CONFIG[entry.type as keyof typeof TYPE_CONFIG]
                 return (
                   <div key={entry.id} className="flex items-center gap-3 px-6 py-3">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}>
@@ -175,12 +225,18 @@ export default function VacationPage() {
                     <span className="text-sm">{formatDate(entry.date_from)}</span>
                     <span className="text-muted-foreground text-sm">→</span>
                     <span className="text-sm">{formatDate(entry.date_to)}</span>
-                    <span className="text-sm font-medium">{entry.days} Tage</span>
+                    <span className="text-sm font-medium">{t("daysLabel", { days: entry.days })}</span>
                     {entry.notes && <span className="text-xs text-muted-foreground truncate flex-1">{entry.notes}</span>}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive ml-auto"
-                      onClick={() => handleDelete(entry.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1 ml-auto">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                        onClick={() => openEdit(entry)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDelete(entry.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 )
               })}
@@ -189,12 +245,16 @@ export default function VacationPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialog} onOpenChange={setDialog}>
+      <Dialog open={dialog} onOpenChange={(open) => { if (!open) closeDialog() }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Neuer Abwesenheitseintrag</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              {editingEntry ? t("editAbsenceEntry") : t("newAbsenceEntry")}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Art</Label>
+              <Label>{t("type")}</Label>
               <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -206,26 +266,26 @@ export default function VacationPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Von</Label>
+                <Label>{tCommon("from")}</Label>
                 <Input type="date" value={form.date_from} onChange={(e) => setForm({ ...form, date_from: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Bis</Label>
+                <Label>{tCommon("to")}</Label>
                 <Input type="date" value={form.date_to} min={form.date_from} onChange={(e) => setForm({ ...form, date_to: e.target.value })} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Arbeitstage</Label>
+              <Label>{t("workdays")}</Label>
               <Input type="number" step="0.5" value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Notizen (optional)</Label>
+              <Label>{t("notesOptional")}</Label>
               <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(false)}>Abbrechen</Button>
-            <Button onClick={handleSave}>Speichern</Button>
+            <Button variant="outline" onClick={closeDialog}>{tCommon("cancel")}</Button>
+            <Button onClick={handleSave}>{tCommon("save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
