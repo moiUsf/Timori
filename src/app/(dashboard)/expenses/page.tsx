@@ -182,17 +182,17 @@ export default function ExpensesPage() {
                   </div>
                   <div className="divide-y">
                     {(items[report.id] ?? []).map((item) => (
-                      <div key={item.id} className="flex items-center gap-3 px-6 py-2.5">
+                      <div key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2.5">
                         <span className="text-xs text-muted-foreground w-20 shrink-0">{formatDate(item.date)}</span>
                         <span className="text-xs font-medium shrink-0">
                           {EXPENSE_CATEGORIES.find(c => c.value === item.category)?.label ?? item.category}
                         </span>
-                        <span className="text-xs text-muted-foreground flex-1 truncate">{item.description}</span>
+                        <span className="text-xs text-muted-foreground flex-1 truncate min-w-0">{item.description}</span>
                         {item.km && <span className="text-xs text-muted-foreground shrink-0">{item.km} km</span>}
                         <span className="text-sm font-medium shrink-0">{item.amount.toFixed(2)} €</span>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
                           onClick={async () => { await supabase.from("expense_items").delete().eq("id", item.id); loadItems(report.id) }}>
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
@@ -216,7 +216,7 @@ export default function ExpensesPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>Neue Spesenabrechnung</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Monat</Label>
                 <Select value={reportForm.month} onValueChange={(v) => setReportForm({ ...reportForm, month: v })}>

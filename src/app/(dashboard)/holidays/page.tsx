@@ -58,8 +58,8 @@ export default async function HolidaysPage() {
                 const isPast = h.date < today
                 const isToday = h.date === today
                 return (
-                  <div key={h.date} className={`flex items-center gap-4 px-6 py-3 ${isPast ? "opacity-50" : ""} ${isToday ? "bg-primary/5" : ""}`}>
-                    <div className="w-28 shrink-0">
+                  <div key={h.date} className={`flex items-center gap-2 sm:gap-4 px-4 py-3 ${isPast ? "opacity-50" : ""} ${isToday ? "bg-primary/5" : ""}`}>
+                    <div className="w-24 sm:w-28 shrink-0">
                       <div className="text-sm font-medium">
                         {d.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" })}
                       </div>

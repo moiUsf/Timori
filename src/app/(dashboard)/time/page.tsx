@@ -420,7 +420,7 @@ export default function TimePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>{t("date")}</Label>
                 <Input type="date" value={form.date}
@@ -680,11 +680,11 @@ export default function TimePage() {
               <span className="text-sm text-muted-foreground">
                 {t("total")}: <strong>{formatHours(totalHours)}</strong>
               </span>
-              <Button variant="outline" size="icon" className="h-8 w-8"
+              <Button variant="outline" size="icon" className="h-9 w-9"
                 onClick={() => setCurrentDate(new Date(year, month - 2, 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8"
+              <Button variant="outline" size="icon" className="h-9 w-9"
                 onClick={() => setCurrentDate(new Date(year, month, 1))}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -699,21 +699,21 @@ export default function TimePage() {
               {/* Filter bar */}
               <div className="px-6 py-2 border-b flex flex-wrap gap-2 items-center">
                 <Select value={filterClient || "__all__"} onValueChange={v => setFilterClient(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="h-7 w-36 text-xs"><SelectValue placeholder="Kunde…" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full sm:w-36 text-xs"><SelectValue placeholder="Kunde…" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Alle</SelectItem>
                     {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Select value={filterBookingItem || "__all__"} onValueChange={v => setFilterBookingItem(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="Buchungsposten…" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full sm:w-44 text-xs"><SelectValue placeholder="Buchungsposten…" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Alle</SelectItem>
                     {allBookingItems.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Select value={filterTask || "__all__"} onValueChange={v => setFilterTask(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="h-7 w-36 text-xs"><SelectValue placeholder="Aufgabe…" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full sm:w-36 text-xs"><SelectValue placeholder="Aufgabe…" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">Alle</SelectItem>
                     {allFilterTasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}

@@ -185,11 +185,11 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-9 w-9"
                 onClick={() => handlePause(timer)}
                 title={isPaused ? "Fortsetzen" : "Pausieren"}
               >
-                {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
               </Button>
               <Button
                 variant="ghost"
@@ -198,7 +198,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
                 onClick={() => handleStop(timer)}
                 title="Stoppen & Speichern"
               >
-                <Square className="h-3.5 w-3.5" />
+                <Square className="h-4 w-4" />
               </Button>
             </div>
           </div>
