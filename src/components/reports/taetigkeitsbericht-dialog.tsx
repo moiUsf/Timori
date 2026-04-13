@@ -516,9 +516,9 @@ export function TaetigkeitsberichtDialog({
                         <td className="border px-0.5 py-0.5 text-center">
                           {!!row.id ? (
                             <input
-                              type="number" min={0} step={1} value={row.break_min === 0 ? "" : row.break_min}
+                              type="number" min={0} step={0.5} value={row.break_min === 0 ? "" : row.break_min / 60}
                               placeholder="0"
-                              onChange={e => handlePauseChange(i, Math.max(0, parseInt(e.target.value || "0", 10)))}
+                              onChange={e => handlePauseChange(i, Math.max(0, Math.round(parseFloat(e.target.value || "0") * 60)))}
                               className="w-full bg-transparent text-xs text-center font-mono focus:outline-none focus:bg-accent/50 rounded px-0.5"
                             />
                           ) : null}

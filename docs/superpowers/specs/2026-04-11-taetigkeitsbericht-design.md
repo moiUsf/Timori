@@ -84,7 +84,11 @@ Columns: `WT | Tag | von | bis | Tätigkeit | Brutto | Pause | Netto | Tages-Net
 - `WT` and `Tag` shown only on first row of each day; empty for subsequent rows
 - `Tages-Netto` shown only on the last row of each day
 - Weekends (Sa/So) shown as empty rows with date but no time data
-- `Tätigkeit` = `booking_item_text` (if set) + `description` (if set), combined. If booking_item_text is empty, fall back to `project.name` + `task.name`
+- `Tätigkeit` = `booking_item_text` + `" - "` + `task.name`, assembled as:
+  - Both set: `"4800061526 - Support PO/PO - INTPLAT-281"`
+  - Only booking_item_text: `"4800061526 - Support PO/PO"`
+  - Only task: `"INTPLAT-281"`
+  - Neither: `description` if set, otherwise `project.name`
 
 **Pause per row:**
 - Display `entry.break_min` formatted as `HH:MM` (e.g. 30 → `00:30`); empty if 0
@@ -106,7 +110,9 @@ Aggregated by `booking_item_text`. Entries without a booking_item_text are group
 
 **Signature area:**
 ```
-Kostenstelle: ____________   Bemerkungen: ____________   Unterschrift: ____________
+Kostenstelle: ____________   Bemerkungen: ____________
+
+Unterschrift Auftragnehmer: ____________   Unterschrift Kunde: ____________
 ```
 
 ---

@@ -19,7 +19,32 @@
       "Bash(npm run:*)",
       "Bash(curl -s http://localhost:3000 -o /dev/null -w \"%{http_code}\")",
       "Bash(git remote:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(claude plugin:*)",
+      "Bash(supabase:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git commit:*)",
+      "Bash(ls:*)",
+      "Bash(npx supabase:*)",
+      "Bash(SUPABASE_ACCESS_TOKEN=sbp_20364b67ae86f1d5f0bed5ecb9c213647407dc34 npx supabase:*)",
+      "Bash(curl:*)",
+      "Bash(xargs grep:*)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(taskkill:*)",
+      "Bash(powershell.exe:*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -c \"[console]::beep(1000,200)\"",
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }
