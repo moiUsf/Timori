@@ -769,9 +769,9 @@ export default function TimePage() {
                   <p className="py-8 text-center text-sm text-muted-foreground">Keine Einträge für diesen Filter.</p>
                 ) : grouped.map(group => (
                   <div key={group.key}>
-                    <div className="flex items-center justify-between px-3 md:px-6" style={{ background: "#f5f5f5", borderBottom: "1px solid #e0e0e0", padding: "6px 12px" }}>
-                      <span style={{ fontSize: "13px", color: "#888" }}>{group.label}</span>
-                      <span style={{ fontSize: "13px", color: "#666", fontWeight: 600 }}>{formatHours(group.totalNet)}</span>
+                    <div className="flex items-center justify-between px-3 md:px-6" style={{ background: "#e8e8e8", borderBottom: "1px solid #d4d4d4", padding: "7px 12px" }}>
+                      <span style={{ fontSize: "14px", color: "#777" }}>{group.label}</span>
+                      <span style={{ fontSize: "14px", color: "#555", fontWeight: 600 }}>{formatHours(group.totalNet)}</span>
                     </div>
                     <div className="divide-y">
                       {group.entries.map((entry, entryIdx) => (
