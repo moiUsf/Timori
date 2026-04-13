@@ -770,14 +770,13 @@ export default function TimePage() {
                     </div>
                     <div className="divide-y">
                       {group.entries.map((entry, entryIdx) => (
-                        <div key={entry.id} className={cn("group transition-colors hover:bg-muted/30", entryIdx % 2 === 1 ? "bg-[#fafafa] dark:bg-muted/10" : "")}>
+                        <div key={entry.id} className={cn("group transition-colors hover:bg-muted/30 cursor-pointer", entryIdx % 2 === 1 ? "bg-[#fafafa] dark:bg-muted/10" : "")} onClick={() => openEdit(entry)}>
                           {/* Mobile layout */}
                           <div className="md:hidden px-4 py-3">
-                            {/* Row 1: short date · time range · code · hours */}
+                            {/* Row 1: short date · time range · hours */}
                             <div className="flex items-center gap-2 flex-wrap pb-2 mb-2 border-b border-border/30">
                               <span className="text-sm font-medium tabular-nums">{fShortDate(entry.date)}</span>
                               <span className="text-sm text-muted-foreground font-mono">{fTime(entry.time_from)}–{fTime(entry.time_to)}</span>
-                              <Badge className="text-xs font-mono bg-foreground text-background border-transparent">{entry.code}</Badge>
                               <span className="ml-auto text-base font-bold tabular-nums">{formatHours(entry.net_h)}</span>
                             </div>
                             {/* Row 2: client · project · task · remote · booking · description */}
@@ -804,15 +803,15 @@ export default function TimePage() {
                             {/* Actions */}
                             <div className="flex justify-end gap-1 mt-1">
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
-                                title="Klonen" onClick={() => openClone(entry)}>
+                                title="Klonen" onClick={(e) => { e.stopPropagation(); openClone(entry) }}>
                                 <Copy className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
-                                onClick={() => openEdit(entry)}>
+                                onClick={(e) => { e.stopPropagation(); openEdit(entry) }}>
                                 <Pencil className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDelete(entry.id)}>
+                                onClick={(e) => { e.stopPropagation(); handleDelete(entry.id) }}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -823,9 +822,8 @@ export default function TimePage() {
                               {formatDate(entry.date)}
                             </div>
                             <div className="w-24 shrink-0 text-sm text-muted-foreground font-mono pt-0.5">
-                              {entry.time_from}–{entry.time_to}
+                              {fTime(entry.time_from)}–{fTime(entry.time_to)}
                             </div>
-                            <Badge variant="outline" className="shrink-0 text-xs mt-0.5">{entry.code}</Badge>
                             <div className="flex-1 min-w-0 space-y-0.5">
                               <div className="flex items-center gap-2 flex-wrap">
                                 {entry.project?.name && (
@@ -844,20 +842,21 @@ export default function TimePage() {
                             </div>
                             {entry.client?.name && <Badge variant="outline" className="text-xs shrink-0 mt-0.5">{entry.client.name}</Badge>}
                             {entry.remote && <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">Remote</Badge>}
+                            <Badge variant="outline" className="text-xs shrink-0 mt-0.5 font-mono">{entry.code}</Badge>
                             <span className="text-sm font-medium shrink-0 w-12 text-right pt-0.5">
                               {formatHours(entry.net_h)}
                             </span>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                                title="Klonen" onClick={() => openClone(entry)}>
+                                title="Klonen" onClick={(e) => { e.stopPropagation(); openClone(entry) }}>
                                 <Copy className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                                onClick={() => openEdit(entry)}>
+                                onClick={(e) => { e.stopPropagation(); openEdit(entry) }}>
                                 <Pencil className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDelete(entry.id)}>
+                                onClick={(e) => { e.stopPropagation(); handleDelete(entry.id) }}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
