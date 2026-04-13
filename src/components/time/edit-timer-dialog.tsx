@@ -128,6 +128,31 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
         </DialogHeader>
         <div className="grid gap-4 py-2">
 
+          {/* Booking item */}
+          <div className="space-y-2">
+            <Label>Buchungsposten (optional)</Label>
+            {bookingItems.length > 0 ? (
+              <Select
+                value={bookingItemText || "_manual"}
+                onValueChange={v => setBookingItemText(v === "_manual" ? "" : v)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_manual">— Manuell eingeben —</SelectItem>
+                  {bookingItems.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {(bookingItems.length === 0 || !bookingItems.find(b => b.name === bookingItemText)) && (
+              <Input
+                placeholder="z.B. 4800061526 - Support PI/PO"
+                value={bookingItemText}
+                onChange={e => setBookingItemText(e.target.value)}
+                className={bookingItems.length > 0 ? "mt-1" : ""}
+              />
+            )}
+          </div>
+
           {/* Project */}
           <div className="space-y-2">
             <Label>Projekt</Label>
@@ -153,31 +178,6 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
                 {tasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Booking item */}
-          <div className="space-y-2">
-            <Label>Buchungsposten (optional)</Label>
-            {bookingItems.length > 0 ? (
-              <Select
-                value={bookingItemText || "_manual"}
-                onValueChange={v => setBookingItemText(v === "_manual" ? "" : v)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_manual">— Manuell eingeben —</SelectItem>
-                  {bookingItems.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            ) : null}
-            {(bookingItems.length === 0 || !bookingItems.find(b => b.name === bookingItemText)) && (
-              <Input
-                placeholder="z.B. 4800061526 - Support PI/PO"
-                value={bookingItemText}
-                onChange={e => setBookingItemText(e.target.value)}
-                className={bookingItems.length > 0 ? "mt-1" : ""}
-              />
-            )}
           </div>
 
           {/* Code */}

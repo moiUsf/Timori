@@ -480,6 +480,35 @@ export default function TimePage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2 col-span-2">
+                <Label>{t("bookingItem")}</Label>
+                {bookingItemAutoSet && (
+                  <p className="text-xs text-amber-600 font-medium">{t("bookingItemAutoSet")}</p>
+                )}
+                {bookingItems.length > 0 ? (
+                  <Select value={form.booking_item_text || "_manual"}
+                    onValueChange={(v) => {
+                      setForm({ ...form, booking_item_text: v === "_manual" ? "" : v })
+                      setBookingItemAutoSet(false)
+                    }}>
+                    <SelectTrigger className={cn("h-12 text-base md:h-9 md:text-sm", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}>
+                      <SelectValue placeholder={t("bookingItemPlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_manual">{t("bookingItemManual")}</SelectItem>
+                      {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                {(bookingItems.length === 0 || !bookingItems.find(b => b.name === form.booking_item_text)) && (
+                  <Input
+                    placeholder="z.B. 4800061526 - Support PI/PO"
+                    value={form.booking_item_text}
+                    onChange={(e) => { setForm({ ...form, booking_item_text: e.target.value }); setBookingItemAutoSet(false) }}
+                    className={cn("h-12 text-base md:h-9 md:text-sm mt-1", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}
+                  />
+                )}
+              </div>
               <div className="space-y-2 col-span-2 md:col-span-1">
                 <Label>{t("project")}</Label>
                 <Select value={form.project_id || "_none"}
@@ -607,36 +636,6 @@ export default function TimePage() {
                       ✕
                     </Button>
                   </div>
-                )}
-              </div>
-
-              <div className="space-y-2 col-span-2">
-                <Label>{t("bookingItem")}</Label>
-                {bookingItemAutoSet && (
-                  <p className="text-xs text-amber-600 font-medium">{t("bookingItemAutoSet")}</p>
-                )}
-                {bookingItems.length > 0 ? (
-                  <Select value={form.booking_item_text || "_manual"}
-                    onValueChange={(v) => {
-                      setForm({ ...form, booking_item_text: v === "_manual" ? "" : v })
-                      setBookingItemAutoSet(false)
-                    }}>
-                    <SelectTrigger className={cn("h-12 text-base md:h-9 md:text-sm", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}>
-                      <SelectValue placeholder={t("bookingItemPlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_manual">{t("bookingItemManual")}</SelectItem>
-                      {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                ) : null}
-                {(bookingItems.length === 0 || !bookingItems.find(b => b.name === form.booking_item_text)) && (
-                  <Input
-                    placeholder="z.B. 4800061526 - Support PI/PO"
-                    value={form.booking_item_text}
-                    onChange={(e) => { setForm({ ...form, booking_item_text: e.target.value }); setBookingItemAutoSet(false) }}
-                    className={cn("h-12 text-base md:h-9 md:text-sm mt-1", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}
-                  />
                 )}
               </div>
 
