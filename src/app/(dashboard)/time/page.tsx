@@ -664,9 +664,9 @@ export default function TimePage() {
 
               <div className="col-span-full flex justify-between items-center pt-2">
                 {form.time_from && form.time_to && (
-                  <span className="text-sm text-muted-foreground">
-                    {t("net")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to, parseInt(form.break_min || "0")))}</strong>
-                    {" "}/ {t("gross")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to))}</strong>
+                  <span className="text-sm text-muted-foreground flex flex-col gap-0.5">
+                    <span>{t("net")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to, parseInt(form.break_min || "0")))}</strong></span>
+                    <span>{t("gross")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to))}</strong></span>
                   </span>
                 )}
                 <div className="flex gap-2 ml-auto">
