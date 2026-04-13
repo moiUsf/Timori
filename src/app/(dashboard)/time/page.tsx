@@ -180,7 +180,7 @@ export default function TimePage() {
   function openClone(entry: EntryWithRelations) {
     setEditingEntry(null)
     setForm({
-      date: entry.date,
+      date: new Date().toISOString().slice(0, 10),
       time_from: entry.time_from,
       time_to: entry.time_to,
       break_min: String(entry.break_min),
