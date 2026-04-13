@@ -770,7 +770,7 @@ export default function TimePage() {
                 ) : grouped.map(group => (
                   <div key={group.key}>
                     <div className="flex items-center justify-between px-3 md:px-6" style={{ background: "#d9d9d9", borderBottom: "1px solid #c8c8c8", padding: "7px 12px" }}>
-                      <span style={{ fontSize: "15px", color: "#555" }}>{group.label}</span>
+                      <span style={{ fontSize: "15px", color: "#555", fontWeight: 600 }}>{group.label}</span>
                       <span style={{ fontSize: "15px", color: "#555", fontWeight: 600 }}>{formatHours(group.totalNet)}</span>
                     </div>
                     <div className="divide-y">
