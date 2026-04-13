@@ -437,7 +437,7 @@ export default function TimePage() {
               {editingEntry ? t("editEntry") : t("newTimeEntry")}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pt-0 pb-6 md:px-6">
             <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 md:grid-cols-3">
               <div className="space-y-2 col-span-2 md:col-span-1">
                 <Label>{t("date")}</Label>
@@ -445,7 +445,7 @@ export default function TimePage() {
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
                   className="h-12 text-base md:h-9 md:text-sm" />
               </div>
-              <div className="col-span-2 md:col-span-2 grid grid-cols-2 gap-3 md:gap-4">
+              <div className="col-span-2 md:col-span-2 grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t("from")}</Label>
                   <Input type="time" value={form.time_from}
