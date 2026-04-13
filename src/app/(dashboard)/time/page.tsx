@@ -783,7 +783,7 @@ export default function TimePage() {
                       {group.entries.map((entry, entryIdx) => (
                         <div key={entry.id} className={cn("group transition-colors hover:bg-muted/30 cursor-pointer", entryIdx % 2 === 1 ? "bg-[#fafafa] dark:bg-muted/10" : "")} onClick={() => openEdit(entry)}>
                           {/* Mobile layout */}
-                          <div className="md:hidden px-4 py-3">
+                          <div className="lg:hidden px-4 py-3">
                             {/* Row 1: short date · time range · hours */}
                             <div className="flex items-center gap-2 flex-wrap pb-2 mb-2 border-b border-border/30">
                               <span className="text-sm font-medium tabular-nums">{fShortDate(entry.date)}</span>
@@ -828,7 +828,7 @@ export default function TimePage() {
                             </div>
                           </div>
                           {/* Desktop layout — unchanged */}
-                          <div className="hidden md:flex items-start gap-3 px-6 py-3">
+                          <div className="hidden lg:flex items-start gap-3 px-6 py-3">
                             <div className="w-20 shrink-0 text-sm text-muted-foreground pt-0.5">
                               {formatDate(entry.date)}
                             </div>
