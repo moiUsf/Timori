@@ -312,13 +312,13 @@ export default function ClientsPage() {
               placeholder="Kunden suchen..."
               value={clientSearch}
               onChange={e => setClientSearch(e.target.value)}
-              className="max-w-[200px]"
+              className="w-full sm:max-w-[200px]"
             />
             <Input
               placeholder="Projekte suchen..."
               value={projectSearch}
               onChange={e => setProjectSearch(e.target.value)}
-              className="max-w-[200px]"
+              className="w-full sm:max-w-[200px]"
             />
             {(clientSearch || projectSearch) && (
               <Button variant="ghost" size="sm" onClick={() => { setClientSearch(""); setProjectSearch("") }}>
@@ -346,18 +346,18 @@ export default function ClientsPage() {
                         {clientName && <p className="text-xs text-muted-foreground">👤 {clientName}</p>}
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <Button variant="ghost" size="icon" className="h-7 w-7"
+                        <Button variant="ghost" size="icon" className="h-9 w-9"
                           onClick={() => {
                             setSelectedClientId(clientId)
                             setEditingProject(p)
                             setProjectForm({ name: p.name, project_nr: p.project_nr ?? "", sub_project: p.sub_project ?? "", category: p.category ?? "", hourly_rate: p.hourly_rate?.toString() ?? "" })
                             setProjectDialog(true)
                           }}>
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
                           onClick={() => deleteProject(p.id, clientId)}>
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -408,7 +408,7 @@ export default function ClientsPage() {
                           setClientForm({ name: client.name, client_nr: client.client_nr ?? "", country: client.country, default_remote: client.default_remote ?? false })
                           setClientDialog(true)
                         }}>
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -431,7 +431,7 @@ export default function ClientsPage() {
                                   {b.description && <span className="text-xs text-muted-foreground ml-2">— {b.description}</span>}
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7"
+                                  <Button variant="ghost" size="icon" className="h-9 w-9"
                                     onClick={() => {
                                       setEditingBooking(b)
                                       setBookingForm({ name: b.name, description: b.description ?? "", client_id: client.id })
@@ -439,7 +439,7 @@ export default function ClientsPage() {
                                     }}>
                                     <Pencil className="h-3 w-3" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
                                     onClick={() => deleteBooking(b.id, client.id)}>
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
@@ -489,18 +489,18 @@ export default function ClientsPage() {
                                   }}>
                                   <Plus className="h-3 w-3" />Aufgabe
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7"
+                                <Button variant="ghost" size="icon" className="h-9 w-9"
                                   onClick={() => {
                                     setSelectedClientId(client.id)
                                     setEditingProject(p)
                                     setProjectForm({ name: p.name, project_nr: p.project_nr ?? "", sub_project: p.sub_project ?? "", category: p.category ?? "", hourly_rate: p.hourly_rate?.toString() ?? "" })
                                     setProjectDialog(true)
                                   }}>
-                                  <Pencil className="h-3.5 w-3.5" />
+                                  <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
                                   onClick={() => deleteProject(p.id, client.id)}>
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             </div>
@@ -640,13 +640,13 @@ export default function ClientsPage() {
                           {defaultBooking && <p className="text-xs text-muted-foreground font-mono truncate">🔖 {defaultBooking.name}</p>}
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                             onClick={() => openEditTask(t)}>
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
                             onClick={() => deleteTask(t.id, t.project_id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -694,17 +694,17 @@ export default function ClientsPage() {
                           {b.description && <p className="text-xs text-muted-foreground truncate">{b.description}</p>}
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                             onClick={() => {
                               setEditingBooking(b)
                               setBookingForm({ name: b.name, description: b.description ?? "", client_id: b.client_id ?? "" })
                               setBookingDialog(true)
                             }}>
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
                             onClick={() => deleteBooking(b.id, b.client_id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>

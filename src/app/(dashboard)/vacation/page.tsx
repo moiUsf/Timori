@@ -172,7 +172,7 @@ export default function VacationPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">{t("annualVacation")}</CardTitle>
@@ -218,7 +218,7 @@ export default function VacationPage() {
               {entries.map((entry) => {
                 const config = TYPE_CONFIG[entry.type as keyof typeof TYPE_CONFIG]
                 return (
-                  <div key={entry.id} className="flex items-center gap-3 px-6 py-3">
+                  <div key={entry.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}>
                       {config.label}
                     </span>
@@ -228,13 +228,13 @@ export default function VacationPage() {
                     <span className="text-sm font-medium">{t("daysLabel", { days: entry.days })}</span>
                     {entry.notes && <span className="text-xs text-muted-foreground truncate flex-1">{entry.notes}</span>}
                     <div className="flex items-center gap-1 ml-auto">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                         onClick={() => openEdit(entry)}>
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
                         onClick={() => handleDelete(entry.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -264,7 +264,7 @@ export default function VacationPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>{tCommon("from")}</Label>
                 <Input type="date" value={form.date_from} onChange={(e) => setForm({ ...form, date_from: e.target.value })} />
