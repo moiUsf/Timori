@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Play } from "lucide-react"
+import { Play, Plus } from "lucide-react"
 
 const HOUR_CODES: { value: HourCode; label: string }[] = [
   { value: "BEV", label: "BEV — Beratung verrechenbar" },
@@ -42,6 +42,10 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
   const [description, setDescription] = useState("")
   const [bookingItemText, setBookingItemText] = useState("")
   const [loading, setLoading] = useState(false)
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState("")
+  const [creatingTask, setCreatingTask] = useState(false)
+  const [newTaskName, setNewTaskName] = useState("")
 
   useEffect(() => {
     supabase.from("clients").select("*").eq("user_id", userId).eq("active", true).order("name")
@@ -89,6 +93,39 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
     loadTasks()
   }, [projectId, clientId, supabase, userId])
 
+  async function handleCreateProject() {
+    if (!newProjectName.trim() || !clientId) return
+    const { data, error } = await supabase.from("projects").insert({
+      user_id: userId,
+      client_id: clientId,
+      name: newProjectName.trim(),
+      active: true,
+    }).select().single()
+    if (error) { toast.error("Fehler: " + error.message); return }
+    setProjects(prev => [...prev, data as Project].sort((a, b) => a.name.localeCompare(b.name)))
+    setProjectId(data.id)
+    setCreatingProject(false)
+    setNewProjectName("")
+    toast.success("Projekt erstellt")
+  }
+
+  async function handleCreateTask() {
+    if (!newTaskName.trim()) return
+    const { data, error } = await supabase.from("tasks").insert({
+      user_id: userId,
+      name: newTaskName.trim(),
+      project_id: projectId || null,
+      client_id: projectId ? null : (clientId || null),
+      active: true,
+    }).select().single()
+    if (error) { toast.error("Fehler: " + error.message); return }
+    setTasks(prev => [...prev, data as Task].sort((a, b) => a.name.localeCompare(b.name)))
+    setTaskId(data.id)
+    setCreatingTask(false)
+    setNewTaskName("")
+    toast.success("Aufgabe erstellt")
+  }
+
   async function handleStart() {
     if (!clientId) { toast.error("Bitte Kunde auswählen"); return }
     setLoading(true)
@@ -111,6 +148,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
       onCreated()
       onOpenChange(false)
       setClientId(""); setProjectId(""); setTaskId(""); setDescription(""); setBookingItemText("")
+      setCreatingProject(false); setCreatingTask(false)
     }
     setLoading(false)
   }
@@ -122,9 +160,11 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
           <DialogTitle>Neuen Timer starten</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2">
+
+          {/* Kunde */}
           <div className="space-y-2">
             <Label>Kunde</Label>
-            <Select value={clientId} onValueChange={(v) => { setClientId(v); setProjectId(""); setTaskId("") }}>
+            <Select value={clientId} onValueChange={(v) => { setClientId(v); setProjectId(""); setTaskId(""); setCreatingProject(false); setCreatingTask(false) }}>
               <SelectTrigger><SelectValue placeholder="Kunde wählen..." /></SelectTrigger>
               <SelectContent>
                 {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -132,32 +172,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Projekt</Label>
-            <Select
-              value={projectId || "_none"}
-              onValueChange={v => { setProjectId(v === "_none" ? "" : v); setTaskId("") }}
-              disabled={!clientId}
-            >
-              <SelectTrigger><SelectValue placeholder="Projekt wählen..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">— Kein Projekt —</SelectItem>
-                {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Aufgabe (optional)</Label>
-            <Select value={taskId || "_none"} onValueChange={(v) => setTaskId(v === "_none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="Aufgabe wählen..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
-                {tasks.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
+          {/* Buchungsposten */}
           <div className="space-y-2">
             <Label>Buchungsposten (optional)</Label>
             {bookingItems.length > 0 ? (
@@ -180,6 +195,113 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
             )}
           </div>
 
+          {/* Projekt */}
+          <div className="space-y-2">
+            <Label>Projekt</Label>
+            <Select
+              value={projectId || "_none"}
+              onValueChange={v => {
+                if (v === "_create_project") {
+                  setCreatingProject(true)
+                  setNewProjectName("")
+                  return
+                }
+                setProjectId(v === "_none" ? "" : v)
+                setTaskId("")
+                setCreatingProject(false)
+              }}
+              disabled={!clientId}
+            >
+              <SelectTrigger><SelectValue placeholder="Projekt wählen..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Kein Projekt —</SelectItem>
+                {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                <div className="border-t mt-1 pt-1">
+                  <SelectItem value="_create_project" className="text-primary font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <Plus className="h-3.5 w-3.5" />Neues Projekt erstellen
+                    </span>
+                  </SelectItem>
+                </div>
+              </SelectContent>
+            </Select>
+            {creatingProject && (
+              <div className="flex gap-1.5">
+                <Input
+                  autoFocus
+                  placeholder="Projektname..."
+                  value={newProjectName}
+                  onChange={e => setNewProjectName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { e.preventDefault(); handleCreateProject() }
+                    if (e.key === "Escape") setCreatingProject(false)
+                  }}
+                />
+                <Button type="button" size="sm" onClick={handleCreateProject}
+                  disabled={!newProjectName.trim()} className="shrink-0">
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="sm" variant="ghost"
+                  onClick={() => setCreatingProject(false)} className="shrink-0 text-muted-foreground">
+                  ✕
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Aufgabe */}
+          <div className="space-y-2">
+            <Label>Aufgabe (optional)</Label>
+            <Select
+              value={taskId || "_none"}
+              onValueChange={(v) => {
+                if (v === "_create_task") {
+                  setCreatingTask(true)
+                  setNewTaskName("")
+                  return
+                }
+                setTaskId(v === "_none" ? "" : v)
+                setCreatingTask(false)
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Aufgabe wählen..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
+                {tasks.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                <div className="border-t mt-1 pt-1">
+                  <SelectItem value="_create_task" className="text-primary font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen
+                    </span>
+                  </SelectItem>
+                </div>
+              </SelectContent>
+            </Select>
+            {creatingTask && (
+              <div className="flex gap-1.5">
+                <Input
+                  autoFocus
+                  placeholder="Aufgabenname..."
+                  value={newTaskName}
+                  onChange={e => setNewTaskName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { e.preventDefault(); handleCreateTask() }
+                    if (e.key === "Escape") setCreatingTask(false)
+                  }}
+                />
+                <Button type="button" size="sm" onClick={handleCreateTask}
+                  disabled={!newTaskName.trim()} className="shrink-0">
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="sm" variant="ghost"
+                  onClick={() => setCreatingTask(false)} className="shrink-0 text-muted-foreground">
+                  ✕
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Stundencode */}
           <div className="space-y-2">
             <Label>Stundencode</Label>
             <Select value={code} onValueChange={(v) => setCode(v as HourCode)}>
@@ -190,6 +312,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
             </Select>
           </div>
 
+          {/* Beschreibung */}
           <div className="space-y-2">
             <Label>Beschreibung (optional)</Label>
             <Input placeholder="Tätigkeit kurz beschreiben..."
