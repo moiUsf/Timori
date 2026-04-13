@@ -395,12 +395,12 @@ export default function TimePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <Button variant="outline" onClick={() => setReportDialogOpen(true)} className="gap-2">
             <FileText className="h-4 w-4" />
             {t("exportReport")}
@@ -511,14 +511,14 @@ export default function TimePage() {
                         if (e.key === "Enter") { e.preventDefault(); handleCreateProject() }
                         if (e.key === "Escape") setCreatingProject(false)
                       }}
-                      className="h-8 text-sm"
+                      className="h-11 text-sm md:h-8"
                     />
                     <Button type="button" size="sm" onClick={handleCreateProject}
-                      disabled={!newProjectName.trim()} className="h-8 px-2 shrink-0">
-                      <Plus className="h-3.5 w-3.5" />
+                      disabled={!newProjectName.trim()} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0">
+                      <Plus className="h-4 w-4" />
                     </Button>
                     <Button type="button" size="sm" variant="ghost"
-                      onClick={() => setCreatingProject(false)} className="h-8 px-2 shrink-0 text-muted-foreground">
+                      onClick={() => setCreatingProject(false)} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0 text-muted-foreground">
                       ✕
                     </Button>
                   </div>
@@ -574,14 +574,14 @@ export default function TimePage() {
                         if (e.key === "Enter") { e.preventDefault(); handleCreateTask() }
                         if (e.key === "Escape") setCreatingTask(false)
                       }}
-                      className="h-8 text-sm"
+                      className="h-11 text-sm md:h-8"
                     />
                     <Button type="button" size="sm" onClick={handleCreateTask}
-                      disabled={!newTaskName.trim()} className="h-8 px-2 shrink-0">
-                      <Plus className="h-3.5 w-3.5" />
+                      disabled={!newTaskName.trim()} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0">
+                      <Plus className="h-4 w-4" />
                     </Button>
                     <Button type="button" size="sm" variant="ghost"
-                      onClick={() => setCreatingTask(false)} className="h-8 px-2 shrink-0 text-muted-foreground">
+                      onClick={() => setCreatingTask(false)} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0 text-muted-foreground">
                       ✕
                     </Button>
                   </div>
@@ -663,14 +663,14 @@ export default function TimePage() {
             <div className="flex items-center gap-2 flex-wrap">
               {/* Sort order toggle */}
               <button onClick={() => setSortAsc(v => !v)}
-                className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] md:px-2 md:py-1 md:text-xs md:min-h-0">
                 {sortAsc ? "↑ Älteste zuerst" : "↓ Neueste zuerst"}
               </button>
               {/* Segmented grouping control */}
               <div className="flex items-center rounded-md border p-0.5 gap-0.5">
                 {(["day", "client", "booking_item", "task"] as const).map(opt => (
                   <button key={opt} onClick={() => setGroupBy(opt)}
-                    className={cn("px-2 py-1 text-xs rounded transition-colors",
+                    className={cn("flex items-center px-3 py-2 text-sm rounded transition-colors min-h-[44px] md:px-2 md:py-1 md:text-xs md:min-h-0",
                       groupBy === opt ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
                     )}>
                     {opt === "day" ? "Tag" : opt === "client" ? "Kunde" : opt === "booking_item" ? "Buchungsposten" : "Aufgabe"}
@@ -697,7 +697,7 @@ export default function TimePage() {
           ) : (
             <>
               {/* Filter bar */}
-              <div className="px-6 py-2 border-b flex flex-wrap gap-2 items-center">
+              <div className="px-4 py-2 border-b flex flex-wrap gap-2 items-center md:px-6">
                 <Select value={filterClient || "__all__"} onValueChange={v => setFilterClient(v === "__all__" ? "" : v)}>
                   <SelectTrigger className="h-8 w-full sm:w-36 text-xs"><SelectValue placeholder="Kunde…" /></SelectTrigger>
                   <SelectContent>
@@ -738,7 +738,7 @@ export default function TimePage() {
                   </Badge>
                 )}
                 {(filterClient || filterBookingItem || filterTask) && (
-                  <Button variant="ghost" size="sm" className="h-7 text-xs"
+                  <Button variant="ghost" size="sm" className="h-11 text-sm md:h-7 md:text-xs"
                     onClick={() => { setFilterClient(""); setFilterBookingItem(""); setFilterTask("") }}>
                     Filter zurücksetzen
                   </Button>
@@ -751,54 +751,90 @@ export default function TimePage() {
                   <p className="py-8 text-center text-sm text-muted-foreground">Keine Einträge für diesen Filter.</p>
                 ) : grouped.map(group => (
                   <div key={group.key}>
-                    <div className="flex items-center justify-between px-6 py-2 bg-muted/50 border-y">
+                    <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-y md:px-6">
                       <span className="text-sm font-semibold">{group.label}</span>
                       <span className="text-xs text-muted-foreground font-mono">{formatHours(group.totalNet)}</span>
                     </div>
                     <div className="divide-y">
                       {group.entries.map((entry) => (
-                        <div key={entry.id} className="flex items-start gap-3 px-6 py-3 hover:bg-muted/30 group">
-                          <div className="w-20 shrink-0 text-sm text-muted-foreground pt-0.5">
-                            {formatDate(entry.date)}
-                          </div>
-                          <div className="w-24 shrink-0 text-sm text-muted-foreground font-mono pt-0.5">
-                            {entry.time_from}–{entry.time_to}
-                          </div>
-                          <Badge variant="outline" className="shrink-0 text-xs mt-0.5">{entry.code}</Badge>
-                          <div className="flex-1 min-w-0 space-y-0.5">
+                        <div key={entry.id} className="hover:bg-muted/30 group">
+                          {/* Mobile layout */}
+                          <div className="md:hidden px-4 py-3 space-y-2">
                             <div className="flex items-center gap-2 flex-wrap">
-                              {entry.project?.name && (
-                                <span className="text-xs text-muted-foreground">/ {entry.project.name}</span>
+                              <span className="text-sm text-muted-foreground">{formatDate(entry.date)}</span>
+                              <span className="text-sm text-muted-foreground font-mono">{entry.time_from}–{entry.time_to}</span>
+                              <Badge variant="outline" className="text-xs">{entry.code}</Badge>
+                              <span className="ml-auto text-sm font-semibold">{formatHours(entry.net_h)}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {entry.client?.name && <Badge variant="outline" className="text-xs">{entry.client.name}</Badge>}
+                                {entry.project?.name && <span className="text-sm text-muted-foreground">/ {entry.project.name}</span>}
+                                {entry.task && <Badge variant="secondary" className="text-xs">📋 {entry.task.name}</Badge>}
+                                {entry.remote && <Badge variant="secondary" className="text-xs">Remote</Badge>}
+                              </div>
+                              {entry.booking_item_text && <p className="text-sm text-muted-foreground font-mono">{entry.booking_item_text}</p>}
+                              {entry.description && <p className="text-sm text-muted-foreground">{entry.description}</p>}
+                            </div>
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
+                                title="Klonen" onClick={() => openClone(entry)}>
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
+                                onClick={() => openEdit(entry)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDelete(entry.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          {/* Desktop layout — unchanged */}
+                          <div className="hidden md:flex items-start gap-3 px-6 py-3">
+                            <div className="w-20 shrink-0 text-sm text-muted-foreground pt-0.5">
+                              {formatDate(entry.date)}
+                            </div>
+                            <div className="w-24 shrink-0 text-sm text-muted-foreground font-mono pt-0.5">
+                              {entry.time_from}–{entry.time_to}
+                            </div>
+                            <Badge variant="outline" className="shrink-0 text-xs mt-0.5">{entry.code}</Badge>
+                            <div className="flex-1 min-w-0 space-y-0.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {entry.project?.name && (
+                                  <span className="text-xs text-muted-foreground">/ {entry.project.name}</span>
+                                )}
+                                {entry.task && (
+                                  <Badge variant="secondary" className="text-xs">📋 {entry.task.name}</Badge>
+                                )}
+                              </div>
+                              {entry.booking_item_text && (
+                                <p className="text-xs text-muted-foreground font-mono">{entry.booking_item_text}</p>
                               )}
-                              {entry.task && (
-                                <Badge variant="secondary" className="text-xs">📋 {entry.task.name}</Badge>
+                              {entry.description && (
+                                <p className="text-xs text-muted-foreground">{entry.description}</p>
                               )}
                             </div>
-                            {entry.booking_item_text && (
-                              <p className="text-xs text-muted-foreground font-mono">{entry.booking_item_text}</p>
-                            )}
-                            {entry.description && (
-                              <p className="text-xs text-muted-foreground">{entry.description}</p>
-                            )}
-                          </div>
-                          {entry.client?.name && <Badge variant="outline" className="text-xs shrink-0 mt-0.5">{entry.client.name}</Badge>}
-                          {entry.remote && <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">Remote</Badge>}
-                          <span className="text-sm font-medium shrink-0 w-12 text-right pt-0.5">
-                            {formatHours(entry.net_h)}
-                          </span>
-                          <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                              title="Klonen" onClick={() => openClone(entry)}>
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                              onClick={() => openEdit(entry)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                              onClick={() => handleDelete(entry.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {entry.client?.name && <Badge variant="outline" className="text-xs shrink-0 mt-0.5">{entry.client.name}</Badge>}
+                            {entry.remote && <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">Remote</Badge>}
+                            <span className="text-sm font-medium shrink-0 w-12 text-right pt-0.5">
+                              {formatHours(entry.net_h)}
+                            </span>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+                                title="Klonen" onClick={() => openClone(entry)}>
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+                                onClick={() => openEdit(entry)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDelete(entry.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
