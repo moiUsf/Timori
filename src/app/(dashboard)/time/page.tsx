@@ -671,7 +671,7 @@ export default function TimePage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-3 mb-[6px]">
+                <div className="flex items-center gap-3 mb-[14px]">
                   <Switch checked={form.remote} onCheckedChange={(v) => setForm({ ...form, remote: v })} />
                   <Label>{t("remote")}</Label>
                 </div>
