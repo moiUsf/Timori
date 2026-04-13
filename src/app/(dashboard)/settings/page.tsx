@@ -302,7 +302,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t("name")} *</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -313,7 +313,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t("workingHoursPerDay")}</Label>
                 <Input type="number" step="0.5" min="1" max="24"
@@ -328,7 +328,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t("federalState")}</Label>
                 <Select value={form.federal_state} onValueChange={(v) => setForm({ ...form, federal_state: v })}>
@@ -461,7 +461,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Schedule + last backup */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Automatisches Backup</Label>
               <Select value={backupSchedule} onValueChange={handleScheduleChange}>

@@ -786,18 +786,18 @@ export default function TimePage() {
                           <span className="text-sm font-medium shrink-0 w-12 text-right pt-0.5">
                             {formatHours(entry.net_h)}
                           </span>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                          <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                               title="Klonen" onClick={() => openClone(entry)}>
-                              <Copy className="h-3.5 w-3.5" />
+                              <Copy className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                               onClick={() => openEdit(entry)}>
-                              <Pencil className="h-3.5 w-3.5" />
+                              <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive"
                               onClick={() => handleDelete(entry.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
