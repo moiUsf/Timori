@@ -301,6 +301,13 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
             )}
           </div>
 
+          {/* Beschreibung */}
+          <div className="space-y-2">
+            <Label>Beschreibung (optional)</Label>
+            <Input placeholder="Tätigkeit kurz beschreiben..."
+              value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+
           {/* Stundencode */}
           <div className="space-y-2">
             <Label>Stundencode</Label>
@@ -310,13 +317,6 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
                 {HOUR_CODES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Beschreibung */}
-          <div className="space-y-2">
-            <Label>Beschreibung (optional)</Label>
-            <Input placeholder="Tätigkeit kurz beschreiben..."
-              value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
         </div>
         <DialogFooter>
