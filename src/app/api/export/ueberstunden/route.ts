@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()))
+  const year = Math.max(2000, Math.min(2100, parseInt(searchParams.get("year") ?? "") || new Date().getFullYear()))
 
   const [profileRes, entriesRes, overtimeRes] = await Promise.all([
     supabase.from("users_profile").select("*").eq("user_id", user.id).single(),

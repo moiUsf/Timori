@@ -8,8 +8,8 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const year = parseInt(searchParams.get("year") ?? String(new Date().getFullYear()))
-  const month = parseInt(searchParams.get("month") ?? String(new Date().getMonth() + 1))
+  const year = Math.max(2000, Math.min(2100, parseInt(searchParams.get("year") ?? "") || new Date().getFullYear()))
+  const month = Math.max(1, Math.min(12, parseInt(searchParams.get("month") ?? "") || new Date().getMonth() + 1))
 
   const startDate = `${year}-${month.toString().padStart(2, "0")}-01`
   const endDate = new Date(year, month, 0).toISOString().slice(0, 10)

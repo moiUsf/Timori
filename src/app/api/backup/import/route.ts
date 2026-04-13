@@ -6,6 +6,11 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const contentLength = request.headers.get("content-length")
+  if (contentLength && parseInt(contentLength) > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 })
+  }
+
   const body = await request.json()
   if (!body?.version || !body?.data) {
     return NextResponse.json({ error: "Invalid backup file" }, { status: 400 })
@@ -45,7 +50,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (errors.length > 0) {
-    return NextResponse.json({ error: "Partial import failure", details: errors }, { status: 207 })
+    console.error("Backup import errors:", errors)
+    return NextResponse.json({ error: "Import partially failed", count: errors.length }, { status: 207 })
   }
 
   return NextResponse.json({ ok: true })
