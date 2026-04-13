@@ -468,7 +468,7 @@ export default function TimePage() {
                 </div>
               </div>
 
-              <div className="hidden md:block border-t border-border/40" />
+              <div className="hidden md:block" />
 
               {/* Row 2: Kunde | Buchungsposten */}
               <div className="grid grid-cols-2 gap-3">
@@ -657,7 +657,7 @@ export default function TimePage() {
                 </div>
               </div>
 
-              <div className="hidden md:block border-t border-border/40" />
+              <div className="hidden md:block" />
 
               {/* Row 4: Code | Remote */}
               <div className="flex flex-wrap items-end gap-4">
