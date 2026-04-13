@@ -434,7 +434,7 @@ export default function TimePage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2 md:col-span-1">
                 <Label>{t("date")}</Label>
                 <Input type="date" value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
@@ -453,7 +453,7 @@ export default function TimePage() {
                   className="h-12 text-base md:h-9 md:text-sm" />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2 md:col-span-1">
                 <Label>{t("break")}</Label>
                 <Input type="number" min="0" value={form.break_min}
                   onChange={(e) => setForm({ ...form, break_min: e.target.value })}
