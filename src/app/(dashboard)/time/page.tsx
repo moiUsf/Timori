@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import type { TimeEntry, Client, Project, Task } from "@/types/database"
@@ -60,6 +60,7 @@ export default function TimePage() {
   const [bookingItems, setBookingItems] = useState<{ id: string; name: string }[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showForm, setShowForm] = useState(false)
+  const formRef = useRef<HTMLDivElement>(null)
   const [editingEntry, setEditingEntry] = useState<EntryWithRelations | null>(null)
   const [userId, setUserId] = useState<string>("")
   const [form, setForm] = useState(emptyForm())
@@ -173,6 +174,7 @@ export default function TimePage() {
     setNewProjectName("")
     setNewTaskName("")
     setShowForm(true)
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0)
   }
 
   function openClone(entry: EntryWithRelations) {
@@ -198,6 +200,7 @@ export default function TimePage() {
     setNewProjectName("")
     setNewTaskName("")
     setShowForm(true)
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0)
   }
 
   function openEdit(entry: EntryWithRelations) {
@@ -223,6 +226,7 @@ export default function TimePage() {
     setNewProjectName("")
     setNewTaskName("")
     setShowForm(true)
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0)
   }
 
   async function handleCreateProject() {
@@ -426,6 +430,7 @@ export default function TimePage() {
       </div>
 
       {showForm && (
+        <div ref={formRef}>
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -674,6 +679,7 @@ export default function TimePage() {
             </form>
           </CardContent>
         </Card>
+        </div>
       )}
 
       <Card>
