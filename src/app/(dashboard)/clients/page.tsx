@@ -775,16 +775,6 @@ export default function ClientsPage() {
               <Label>Beschreibung (optional)</Label>
               <Input value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} />
             </div>
-            <div className="space-y-2">
-              <Label>Projekt (optional)</Label>
-              <Select value={taskForm.project_id || "_none"} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === "_none" ? "" : v, client_id: v !== "_none" ? "" : taskForm.client_id })}>
-                <SelectTrigger><SelectValue placeholder="Kein Projekt" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">— Kein Projekt —</SelectItem>
-                  {flatProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
             {!taskForm.project_id && (
               <div className="space-y-2">
                 <Label>Kunde (optional)</Label>
@@ -797,6 +787,16 @@ export default function ClientsPage() {
                 </Select>
               </div>
             )}
+            <div className="space-y-2">
+              <Label>Projekt (optional)</Label>
+              <Select value={taskForm.project_id || "_none"} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === "_none" ? "" : v, client_id: v !== "_none" ? "" : taskForm.client_id })}>
+                <SelectTrigger><SelectValue placeholder="Kein Projekt" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— Kein Projekt —</SelectItem>
+                  {flatProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label>Standard-Buchungsposten (optional)</Label>
               <Select value={taskForm.default_booking_item_id || "_none"} onValueChange={(v) => setTaskForm({ ...taskForm, default_booking_item_id: v === "_none" ? "" : v })}>
