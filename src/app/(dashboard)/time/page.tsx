@@ -433,29 +433,33 @@ export default function TimePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-3">
+            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>{t("date")}</Label>
                 <Input type="date" value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  className="h-12 text-base md:h-9 md:text-sm" />
               </div>
               <div className="space-y-2">
                 <Label>{t("from")}</Label>
                 <Input type="time" value={form.time_from}
-                  onChange={(e) => setForm({ ...form, time_from: e.target.value })} />
+                  onChange={(e) => setForm({ ...form, time_from: e.target.value })}
+                  className="h-12 text-base md:h-9 md:text-sm" />
               </div>
               <div className="space-y-2">
                 <Label>{t("to")}</Label>
                 <Input type="time" value={form.time_to}
-                  onChange={(e) => setForm({ ...form, time_to: e.target.value })} />
+                  onChange={(e) => setForm({ ...form, time_to: e.target.value })}
+                  className="h-12 text-base md:h-9 md:text-sm" />
               </div>
 
               <div className="space-y-2">
                 <Label>{t("break")}</Label>
                 <Input type="number" min="0" value={form.break_min}
-                  onChange={(e) => setForm({ ...form, break_min: e.target.value })} />
+                  onChange={(e) => setForm({ ...form, break_min: e.target.value })}
+                  className="h-12 text-base md:h-9 md:text-sm" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2 md:col-span-1">
                 <Label>{t("client")}</Label>
                 <Select value={form.client_id}
                   onValueChange={(v) => {
@@ -465,13 +469,13 @@ export default function TimePage() {
                     setProjectSearch("")
                     setTaskSearch("")
                   }}>
-                  <SelectTrigger><SelectValue placeholder={t("clientPlaceholder")} /></SelectTrigger>
+                  <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("clientPlaceholder")} /></SelectTrigger>
                   <SelectContent>
                     {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2 md:col-span-1">
                 <Label>{t("project")}</Label>
                 <Select value={form.project_id || "_none"}
                   onValueChange={(v) => {
@@ -488,7 +492,7 @@ export default function TimePage() {
                     setCreatingProject(false)
                   }}
                   disabled={!form.client_id}>
-                  <SelectTrigger><SelectValue placeholder={t("projectPlaceholder")} /></SelectTrigger>
+                  <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("projectPlaceholder")} /></SelectTrigger>
                   <SelectContent>
                     <div className="p-2 border-b">
                       <Input
@@ -538,7 +542,7 @@ export default function TimePage() {
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2 md:col-span-1">
                 <Label>{t("task")}</Label>
                 <Select value={form.task_id || "_none"}
                   onValueChange={(v) => {
@@ -551,7 +555,7 @@ export default function TimePage() {
                     handleTaskSelect(v)
                     setCreatingTask(false)
                   }}>
-                  <SelectTrigger><SelectValue placeholder={t("taskPlaceholder")} /></SelectTrigger>
+                  <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("taskPlaceholder")} /></SelectTrigger>
                   <SelectContent>
                     <div className="p-2 border-b">
                       <Input
@@ -612,7 +616,7 @@ export default function TimePage() {
                       setForm({ ...form, booking_item_text: v === "_manual" ? "" : v })
                       setBookingItemAutoSet(false)
                     }}>
-                    <SelectTrigger className={bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : ""}>
+                    <SelectTrigger className={cn("h-12 text-base md:h-9 md:text-sm", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}>
                       <SelectValue placeholder={t("bookingItemPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -626,7 +630,7 @@ export default function TimePage() {
                     placeholder="z.B. 4800061526 - Support PI/PO"
                     value={form.booking_item_text}
                     onChange={(e) => { setForm({ ...form, booking_item_text: e.target.value }); setBookingItemAutoSet(false) }}
-                    className={bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400 mt-1" : "mt-1"}
+                    className={cn("h-12 text-base md:h-9 md:text-sm mt-1", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}
                   />
                 )}
               </div>
@@ -635,7 +639,7 @@ export default function TimePage() {
                 <Label>{t("code")}</Label>
                 <Select value={form.code}
                   onValueChange={(v) => setForm({ ...form, code: v as typeof HOUR_CODES[number] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {HOUR_CODES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
@@ -645,7 +649,8 @@ export default function TimePage() {
               <div className="space-y-2 col-span-2 md:col-span-2">
                 <Label>{t("description")}</Label>
                 <Input placeholder={t("descriptionPlaceholder")} value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="h-12 text-base md:h-9 md:text-sm" />
               </div>
               <div className="space-y-2 flex items-center gap-3 pt-6">
                 <Switch checked={form.remote} onCheckedChange={(v) => setForm({ ...form, remote: v })} />
