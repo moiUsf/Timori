@@ -82,3 +82,9 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
