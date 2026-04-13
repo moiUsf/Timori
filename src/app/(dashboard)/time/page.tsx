@@ -438,230 +438,247 @@ export default function TimePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pt-0 pb-6 md:px-6">
-            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              <div className="space-y-2 col-span-2 md:col-span-1">
-                <Label>{t("date")}</Label>
-                <Input type="date" value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="h-12 text-base md:h-9 md:text-sm" />
-              </div>
-              <div className="space-y-2 col-span-2 md:col-span-1">
-                <Label>{t("from")}</Label>
-                <Input type="time" value={form.time_from}
-                  onChange={(e) => setForm({ ...form, time_from: e.target.value })}
-                  className="h-12 text-base md:h-9 md:text-sm" />
-              </div>
-              <div className="space-y-2 col-span-2 md:col-span-1">
-                <Label>{t("to")}</Label>
-                <Input type="time" value={form.time_to}
-                  onChange={(e) => setForm({ ...form, time_to: e.target.value })}
-                  className="h-12 text-base md:h-9 md:text-sm" />
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+
+              {/* Row 1: Datum | Von | Bis | Pause */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("date")}</Label>
+                  <Input type="date" value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    className="h-12 text-base md:h-9 md:text-sm" />
+                </div>
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("from")}</Label>
+                  <Input type="time" value={form.time_from}
+                    onChange={(e) => setForm({ ...form, time_from: e.target.value })}
+                    className="h-12 text-base md:h-9 md:text-sm" />
+                </div>
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("to")}</Label>
+                  <Input type="time" value={form.time_to}
+                    onChange={(e) => setForm({ ...form, time_to: e.target.value })}
+                    className="h-12 text-base md:h-9 md:text-sm" />
+                </div>
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("break")}</Label>
+                  <Input type="number" min="0" value={form.break_min}
+                    onChange={(e) => setForm({ ...form, break_min: e.target.value })}
+                    className="h-12 text-base md:h-9 md:text-sm" />
+                </div>
               </div>
 
-              <div className="space-y-2 col-span-2 md:col-span-1">
-                <Label>{t("break")}</Label>
-                <Input type="number" min="0" value={form.break_min}
-                  onChange={(e) => setForm({ ...form, break_min: e.target.value })}
-                  className="h-12 text-base md:h-9 md:text-sm" />
-              </div>
-              <div className="space-y-2 col-span-2 md:col-span-1">
-                <Label>{t("client")}</Label>
-                <Select value={form.client_id}
-                  onValueChange={(v) => {
-                    const selectedClient = clients.find(c => c.id === v)
-                    setForm({ ...form, client_id: v, project_id: "", task_id: "", remote: selectedClient?.default_remote ?? false })
-                    setBookingItemAutoSet(false)
-                    setProjectSearch("")
-                    setTaskSearch("")
-                  }}>
-                  <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("clientPlaceholder")} /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label>{t("bookingItem")}</Label>
-                {bookingItemAutoSet && (
-                  <p className="text-xs text-amber-600 font-medium">{t("bookingItemAutoSet")}</p>
-                )}
-                {bookingItems.length > 0 ? (
-                  <Select value={form.booking_item_text || "_manual"}
+              <div className="hidden md:block border-t border-border/40" />
+
+              {/* Row 2: Kunde | Buchungsposten */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("client")}</Label>
+                  <Select value={form.client_id}
                     onValueChange={(v) => {
-                      setForm({ ...form, booking_item_text: v === "_manual" ? "" : v })
+                      const selectedClient = clients.find(c => c.id === v)
+                      setForm({ ...form, client_id: v, project_id: "", task_id: "", remote: selectedClient?.default_remote ?? false })
                       setBookingItemAutoSet(false)
+                      setProjectSearch("")
+                      setTaskSearch("")
                     }}>
-                    <SelectTrigger className={cn("h-12 text-base md:h-9 md:text-sm", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}>
-                      <SelectValue placeholder={t("bookingItemPlaceholder")} />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("clientPlaceholder")} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_manual">{t("bookingItemManual")}</SelectItem>
-                      {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                      {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                ) : null}
-                {(bookingItems.length === 0 || !bookingItems.find(b => b.name === form.booking_item_text)) && (
-                  <Input
-                    placeholder="z.B. 4800061526 - Support PI/PO"
-                    value={form.booking_item_text}
-                    onChange={(e) => { setForm({ ...form, booking_item_text: e.target.value }); setBookingItemAutoSet(false) }}
-                    className={cn("h-12 text-base md:h-9 md:text-sm mt-1", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}
-                  />
-                )}
+                </div>
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("bookingItem")}</Label>
+                  {bookingItemAutoSet && (
+                    <p className="text-xs text-amber-600 font-medium">{t("bookingItemAutoSet")}</p>
+                  )}
+                  {bookingItems.length > 0 ? (
+                    <Select value={form.booking_item_text || "_manual"}
+                      onValueChange={(v) => {
+                        setForm({ ...form, booking_item_text: v === "_manual" ? "" : v })
+                        setBookingItemAutoSet(false)
+                      }}>
+                      <SelectTrigger className={cn("h-12 text-base md:h-9 md:text-sm", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}>
+                        <SelectValue placeholder={t("bookingItemPlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_manual">{t("bookingItemManual")}</SelectItem>
+                        {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  ) : null}
+                  {(bookingItems.length === 0 || !bookingItems.find(b => b.name === form.booking_item_text)) && (
+                    <Input
+                      placeholder="z.B. 4800061526 - Support PI/PO"
+                      value={form.booking_item_text}
+                      onChange={(e) => { setForm({ ...form, booking_item_text: e.target.value }); setBookingItemAutoSet(false) }}
+                      className={cn("h-12 text-base md:h-9 md:text-sm", bookingItems.length > 0 ? "mt-1" : "", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}
+                    />
+                  )}
+                </div>
               </div>
-              <div className="space-y-2 col-span-2 md:col-span-1">
-                <Label>{t("project")}</Label>
-                <Select value={form.project_id || "_none"}
-                  onValueChange={(v) => {
-                    if (v === "_create_project") {
-                      setCreatingProject(true)
-                      setNewProjectName("")
+
+              {/* Row 3: Projekt | Aufgabe | Beschreibung */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("project")}</Label>
+                  <Select value={form.project_id || "_none"}
+                    onValueChange={(v) => {
+                      if (v === "_create_project") {
+                        setCreatingProject(true)
+                        setNewProjectName("")
+                        setProjectSearch("")
+                        return
+                      }
+                      setForm({ ...form, project_id: v === "_none" ? "" : v, task_id: "" })
+                      setBookingItemAutoSet(false)
                       setProjectSearch("")
-                      return
-                    }
-                    setForm({ ...form, project_id: v === "_none" ? "" : v, task_id: "" })
-                    setBookingItemAutoSet(false)
-                    setProjectSearch("")
-                    setTaskSearch("")
-                    setCreatingProject(false)
-                  }}
-                  disabled={!form.client_id}>
-                  <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("projectPlaceholder")} /></SelectTrigger>
-                  <SelectContent>
-                    <div className="p-2 border-b">
-                      <Input
-                        placeholder={tCommon("search")}
-                        value={projectSearch}
-                        onChange={e => setProjectSearch(e.target.value)}
-                        onKeyDown={e => e.stopPropagation()}
-                        className="h-7 text-sm"
-                      />
-                    </div>
-                    <SelectItem value="_none">{t("noProject")}</SelectItem>
-                    {filteredProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    {filteredProjects.length === 0 && projectSearch && (
-                      <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
-                    )}
-                    <div className="border-t mt-1 pt-1">
-                      <SelectItem value="_create_project" className="text-primary font-medium">
-                        <span className="flex items-center gap-1.5">
-                          <Plus className="h-3.5 w-3.5" />Neues Projekt erstellen
-                        </span>
-                      </SelectItem>
-                    </div>
-                  </SelectContent>
-                </Select>
-                {creatingProject && (
-                  <div className="flex gap-1.5">
-                    <Input
-                      autoFocus
-                      placeholder="Projektname..."
-                      value={newProjectName}
-                      onChange={e => setNewProjectName(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") { e.preventDefault(); handleCreateProject() }
-                        if (e.key === "Escape") setCreatingProject(false)
-                      }}
-                      className="h-11 text-sm md:h-8"
-                    />
-                    <Button type="button" size="sm" onClick={handleCreateProject}
-                      disabled={!newProjectName.trim()} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost"
-                      onClick={() => setCreatingProject(false)} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0 text-muted-foreground">
-                      ✕
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2 col-span-2 md:col-span-1">
-                <Label>{t("task")}</Label>
-                <Select value={form.task_id || "_none"}
-                  onValueChange={(v) => {
-                    if (v === "_create_task") {
-                      setCreatingTask(true)
-                      setNewTaskName("")
                       setTaskSearch("")
-                      return
-                    }
-                    handleTaskSelect(v)
-                    setCreatingTask(false)
-                  }}>
-                  <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("taskPlaceholder")} /></SelectTrigger>
-                  <SelectContent>
-                    <div className="p-2 border-b">
+                      setCreatingProject(false)
+                    }}
+                    disabled={!form.client_id}>
+                    <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("projectPlaceholder")} /></SelectTrigger>
+                    <SelectContent>
+                      <div className="p-2 border-b">
+                        <Input
+                          placeholder={tCommon("search")}
+                          value={projectSearch}
+                          onChange={e => setProjectSearch(e.target.value)}
+                          onKeyDown={e => e.stopPropagation()}
+                          className="h-7 text-sm"
+                        />
+                      </div>
+                      <SelectItem value="_none">{t("noProject")}</SelectItem>
+                      {filteredProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      {filteredProjects.length === 0 && projectSearch && (
+                        <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
+                      )}
+                      <div className="border-t mt-1 pt-1">
+                        <SelectItem value="_create_project" className="text-primary font-medium">
+                          <span className="flex items-center gap-1.5">
+                            <Plus className="h-3.5 w-3.5" />Neues Projekt erstellen
+                          </span>
+                        </SelectItem>
+                      </div>
+                    </SelectContent>
+                  </Select>
+                  {creatingProject && (
+                    <div className="flex gap-1.5">
                       <Input
-                        placeholder={tCommon("search")}
-                        value={taskSearch}
-                        onChange={e => setTaskSearch(e.target.value)}
-                        onKeyDown={e => e.stopPropagation()}
-                        className="h-7 text-sm"
+                        autoFocus
+                        placeholder="Projektname..."
+                        value={newProjectName}
+                        onChange={e => setNewProjectName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") { e.preventDefault(); handleCreateProject() }
+                          if (e.key === "Escape") setCreatingProject(false)
+                        }}
+                        className="h-11 text-sm md:h-8"
                       />
+                      <Button type="button" size="sm" onClick={handleCreateProject}
+                        disabled={!newProjectName.trim()} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost"
+                        onClick={() => setCreatingProject(false)} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0 text-muted-foreground">
+                        ✕
+                      </Button>
                     </div>
-                    <SelectItem value="_none">{t("noTask")}</SelectItem>
-                    {filteredTasks.map((task) => <SelectItem key={task.id} value={task.id}>{task.name}</SelectItem>)}
-                    {filteredTasks.length === 0 && taskSearch && (
-                      <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
-                    )}
-                    <div className="border-t mt-1 pt-1">
-                      <SelectItem value="_create_task" className="text-primary font-medium">
-                        <span className="flex items-center gap-1.5">
-                          <Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen
-                        </span>
-                      </SelectItem>
+                  )}
+                </div>
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("task")}</Label>
+                  <Select value={form.task_id || "_none"}
+                    onValueChange={(v) => {
+                      if (v === "_create_task") {
+                        setCreatingTask(true)
+                        setNewTaskName("")
+                        setTaskSearch("")
+                        return
+                      }
+                      handleTaskSelect(v)
+                      setCreatingTask(false)
+                    }}>
+                    <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue placeholder={t("taskPlaceholder")} /></SelectTrigger>
+                    <SelectContent>
+                      <div className="p-2 border-b">
+                        <Input
+                          placeholder={tCommon("search")}
+                          value={taskSearch}
+                          onChange={e => setTaskSearch(e.target.value)}
+                          onKeyDown={e => e.stopPropagation()}
+                          className="h-7 text-sm"
+                        />
+                      </div>
+                      <SelectItem value="_none">{t("noTask")}</SelectItem>
+                      {filteredTasks.map((task) => <SelectItem key={task.id} value={task.id}>{task.name}</SelectItem>)}
+                      {filteredTasks.length === 0 && taskSearch && (
+                        <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
+                      )}
+                      <div className="border-t mt-1 pt-1">
+                        <SelectItem value="_create_task" className="text-primary font-medium">
+                          <span className="flex items-center gap-1.5">
+                            <Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen
+                          </span>
+                        </SelectItem>
+                      </div>
+                    </SelectContent>
+                  </Select>
+                  {creatingTask && (
+                    <div className="flex gap-1.5">
+                      <Input
+                        autoFocus
+                        placeholder="Aufgabenname..."
+                        value={newTaskName}
+                        onChange={e => setNewTaskName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") { e.preventDefault(); handleCreateTask() }
+                          if (e.key === "Escape") setCreatingTask(false)
+                        }}
+                        className="h-11 text-sm md:h-8"
+                      />
+                      <Button type="button" size="sm" onClick={handleCreateTask}
+                        disabled={!newTaskName.trim()} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost"
+                        onClick={() => setCreatingTask(false)} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0 text-muted-foreground">
+                        ✕
+                      </Button>
                     </div>
-                  </SelectContent>
-                </Select>
-                {creatingTask && (
-                  <div className="flex gap-1.5">
-                    <Input
-                      autoFocus
-                      placeholder="Aufgabenname..."
-                      value={newTaskName}
-                      onChange={e => setNewTaskName(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") { e.preventDefault(); handleCreateTask() }
-                        if (e.key === "Escape") setCreatingTask(false)
-                      }}
-                      className="h-11 text-sm md:h-8"
-                    />
-                    <Button type="button" size="sm" onClick={handleCreateTask}
-                      disabled={!newTaskName.trim()} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost"
-                      onClick={() => setCreatingTask(false)} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0 text-muted-foreground">
-                      ✕
-                    </Button>
-                  </div>
-                )}
+                  )}
+                </div>
+                <div className="space-y-2 col-span-2 md:col-span-1">
+                  <Label>{t("description")}</Label>
+                  <Input placeholder={t("descriptionPlaceholder")} value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    className="h-12 text-base md:h-9 md:text-sm" />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>{t("code")}</Label>
-                <Select value={form.code}
-                  onValueChange={(v) => setForm({ ...form, code: v as typeof HOUR_CODES[number] })}>
-                  <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {HOUR_CODES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="hidden md:block border-t border-border/40" />
+
+              {/* Row 4: Code | Remote */}
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="space-y-2 w-full md:w-52">
+                  <Label>{t("code")}</Label>
+                  <Select value={form.code}
+                    onValueChange={(v) => setForm({ ...form, code: v as typeof HOUR_CODES[number] })}>
+                    <SelectTrigger className="h-12 text-base md:h-9 md:text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {HOUR_CODES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-3 pb-[9px]">
+                  <Switch checked={form.remote} onCheckedChange={(v) => setForm({ ...form, remote: v })} />
+                  <Label>{t("remote")}</Label>
+                </div>
               </div>
 
-              <div className="space-y-2 col-span-2 md:col-span-2">
-                <Label>{t("description")}</Label>
-                <Input placeholder={t("descriptionPlaceholder")} value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="h-12 text-base md:h-9 md:text-sm" />
-              </div>
-              <div className="space-y-2 flex items-center gap-3 pt-6">
-                <Switch checked={form.remote} onCheckedChange={(v) => setForm({ ...form, remote: v })} />
-                <Label>{t("remote")}</Label>
-              </div>
-
-              <div className="col-span-full flex justify-between items-center pt-2">
+              {/* Footer: Netto/Brutto + buttons */}
+              <div className="flex justify-between items-center pt-1">
                 {form.time_from && form.time_to && (
                   <span className="text-sm text-muted-foreground flex flex-col gap-0.5">
                     <span>{t("net")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to, parseInt(form.break_min || "0")))}</strong></span>
