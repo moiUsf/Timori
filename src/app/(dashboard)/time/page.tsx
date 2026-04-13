@@ -660,7 +660,7 @@ export default function TimePage() {
               <div className="hidden md:block" />
 
               {/* Row 4: Code | Remote */}
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-end gap-4">
                 <div className="space-y-2 w-full md:w-52">
                   <Label>{t("code")}</Label>
                   <Select value={form.code}
@@ -671,7 +671,7 @@ export default function TimePage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mb-[6px]">
                   <Switch checked={form.remote} onCheckedChange={(v) => setForm({ ...form, remote: v })} />
                   <Label>{t("remote")}</Label>
                 </div>
