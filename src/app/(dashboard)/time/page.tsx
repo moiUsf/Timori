@@ -36,6 +36,19 @@ const emptyForm = () => ({
   booking_item_text: "",
 })
 
+/** "2025-04-13" → "13.04" */
+function fShortDate(date: string) {
+  const [, m, d] = date.split("-")
+  return `${d}.${m}`
+}
+
+/** Strip trailing ":00" seconds if zero, keep if non-zero */
+function fTime(t: string) {
+  const parts = t.split(":")
+  if (parts.length === 3 && parts[2] === "00") return `${parts[0]}:${parts[1]}`
+  return t
+}
+
 export default function TimePage() {
   const supabase = createClient()
   const t = useTranslations("time")
@@ -756,27 +769,40 @@ export default function TimePage() {
                       <span className="text-xs text-muted-foreground font-mono">{formatHours(group.totalNet)}</span>
                     </div>
                     <div className="divide-y">
-                      {group.entries.map((entry) => (
-                        <div key={entry.id} className="hover:bg-muted/30 group">
+                      {group.entries.map((entry, entryIdx) => (
+                        <div key={entry.id} className={cn("group transition-colors hover:bg-muted/30", entryIdx % 2 === 1 ? "bg-[#fafafa] dark:bg-muted/10" : "")}>
                           {/* Mobile layout */}
-                          <div className="md:hidden px-4 py-3 space-y-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm text-muted-foreground">{formatDate(entry.date)}</span>
-                              <span className="text-sm text-muted-foreground font-mono">{entry.time_from}–{entry.time_to}</span>
-                              <Badge variant="outline" className="text-xs">{entry.code}</Badge>
-                              <span className="ml-auto text-sm font-semibold">{formatHours(entry.net_h)}</span>
+                          <div className="md:hidden px-4 py-3">
+                            {/* Row 1: short date · time range · code · hours */}
+                            <div className="flex items-center gap-2 flex-wrap pb-2 mb-2 border-b border-border/30">
+                              <span className="text-sm font-medium tabular-nums">{fShortDate(entry.date)}</span>
+                              <span className="text-sm text-muted-foreground font-mono">{fTime(entry.time_from)}–{fTime(entry.time_to)}</span>
+                              <Badge className="text-xs font-mono bg-foreground text-background border-transparent">{entry.code}</Badge>
+                              <span className="ml-auto text-base font-bold tabular-nums">{formatHours(entry.net_h)}</span>
                             </div>
-                            <div className="space-y-1">
+                            {/* Row 2: client · project · task · remote · booking · description */}
+                            <div className="space-y-1.5">
                               <div className="flex flex-wrap items-center gap-1.5">
-                                {entry.client?.name && <Badge variant="outline" className="text-xs">{entry.client.name}</Badge>}
+                                {entry.client?.name && (
+                                  <Badge variant="outline" className="text-xs text-muted-foreground border-border/60">
+                                    {entry.client.name}
+                                  </Badge>
+                                )}
                                 {entry.project?.name && <span className="text-sm text-muted-foreground">/ {entry.project.name}</span>}
                                 {entry.task && <Badge variant="secondary" className="text-xs">📋 {entry.task.name}</Badge>}
-                                {entry.remote && <Badge variant="secondary" className="text-xs">Remote</Badge>}
+                                {entry.remote && (
+                                  <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400">
+                                    Remote
+                                  </Badge>
+                                )}
                               </div>
-                              {entry.booking_item_text && <p className="text-sm text-muted-foreground font-mono">{entry.booking_item_text}</p>}
+                              {entry.booking_item_text && (
+                                <p className="text-sm font-mono text-zinc-400 dark:text-zinc-500">{entry.booking_item_text}</p>
+                              )}
                               {entry.description && <p className="text-sm text-muted-foreground">{entry.description}</p>}
                             </div>
-                            <div className="flex justify-end gap-1">
+                            {/* Actions */}
+                            <div className="flex justify-end gap-1 mt-1">
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
                                 title="Klonen" onClick={() => openClone(entry)}>
                                 <Copy className="h-4 w-4" />
