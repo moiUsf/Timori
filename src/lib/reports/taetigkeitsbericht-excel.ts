@@ -3,9 +3,7 @@ import type { ReportData } from "./taetigkeitsbericht-data"
 
 function fPause(min: number): string {
   if (min === 0) return ""
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`
+  return (min / 60).toFixed(1).replace(".", ",")
 }
 
 const THIN: Partial<ExcelJS.Borders> = {
@@ -98,6 +96,25 @@ export async function generateExcel(data: ReportData): Promise<Blob> {
       })
     }
   }
+
+  // ── Gesamt-Zeile unter Haupttabelle ─────────────────────
+  const gesamtTableRow = ws.getRow(rowNum)
+  gesamtTableRow.getCell(1).value = "Gesamt:"
+  gesamtTableRow.getCell(1).font = { bold: true }
+  gesamtTableRow.getCell(1).alignment = { horizontal: "left" }
+  gesamtTableRow.getCell(9).value = data.gesamtNetto
+  gesamtTableRow.getCell(9).numFmt = "0.0"
+  gesamtTableRow.getCell(9).font = { bold: true }
+  gesamtTableRow.getCell(9).alignment = { horizontal: "center" }
+  for (let c = 1; c <= COLS; c++) {
+    gesamtTableRow.getCell(c).border = {
+      top: { style: "medium" },
+      left: c === 1 ? { style: "thin" } : undefined,
+      right: c === COLS ? { style: "thin" } : undefined,
+      bottom: { style: "thin" },
+    }
+  }
+  rowNum++
 
   // ── Buchungskonten Übersicht ─────────────────────────────
   rowNum++ // empty row

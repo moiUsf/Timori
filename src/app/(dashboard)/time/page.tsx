@@ -12,8 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { formatHours, formatDate, hoursFromTimeRange } from "@/lib/utils"
-import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, AlertTriangle, FileText } from "lucide-react"
+import { formatHours, formatDate, hoursFromTimeRange, cn } from "@/lib/utils"
+import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
 
@@ -60,6 +60,12 @@ export default function TimePage() {
   const [newProjectName, setNewProjectName] = useState("")
   const [creatingTask, setCreatingTask] = useState(false)
   const [newTaskName, setNewTaskName] = useState("")
+  type GroupBy = "day" | "client" | "booking_item" | "task"
+  const [groupBy, setGroupBy] = useState<GroupBy>("day")
+  const [sortAsc, setSortAsc] = useState(true)
+  const [filterClient, setFilterClient] = useState("")
+  const [filterBookingItem, setFilterBookingItem] = useState("")
+  const [filterTask, setFilterTask] = useState("")
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
@@ -137,7 +143,40 @@ export default function TimePage() {
 
   function openNew() {
     setEditingEntry(null)
-    setForm(emptyForm())
+    const now = new Date()
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), 0)
+    const to = new Date(from.getTime() + 60 * 60 * 1000)
+    const pad = (n: number) => String(n).padStart(2, "0")
+    setForm({
+      ...emptyForm(),
+      time_from: `${pad(from.getHours())}:${pad(from.getMinutes())}`,
+      time_to: `${pad(to.getHours())}:${pad(to.getMinutes())}`,
+    })
+    setBookingItemAutoSet(false)
+    setProjectSearch("")
+    setTaskSearch("")
+    setCreatingProject(false)
+    setCreatingTask(false)
+    setNewProjectName("")
+    setNewTaskName("")
+    setShowForm(true)
+  }
+
+  function openClone(entry: EntryWithRelations) {
+    setEditingEntry(null)
+    setForm({
+      date: entry.date,
+      time_from: entry.time_from,
+      time_to: entry.time_to,
+      break_min: String(entry.break_min),
+      client_id: entry.client_id,
+      project_id: entry.project_id,
+      code: entry.code,
+      description: entry.description,
+      remote: entry.remote,
+      task_id: entry.task_id ?? "",
+      booking_item_text: entry.booking_item_text ?? "",
+    })
     setBookingItemAutoSet(false)
     setProjectSearch("")
     setTaskSearch("")
@@ -299,23 +338,48 @@ export default function TimePage() {
     loadEntries()
   }
 
-  // Group entries by client, then by date
-  function groupByClientAndDate(entries: EntryWithRelations[]) {
-    const clientMap = new Map<string, { clientName: string; totalNet: number; dates: Map<string, EntryWithRelations[]> }>()
-    for (const entry of entries) {
-      const cId = entry.client_id
-      const cName = entry.client?.name ?? cId
-      if (!clientMap.has(cId)) {
-        clientMap.set(cId, { clientName: cName, totalNet: 0, dates: new Map() })
+  // Filter entries (AND-logic)
+  const displayEntries = entries.filter(e => {
+    if (filterClient && e.client_id !== filterClient) return false
+    if (filterBookingItem && e.booking_item_text !== filterBookingItem) return false
+    if (filterTask && e.task_id !== filterTask) return false
+    return true
+  })
+
+  // Dropdown options derived from ALL entries of the month (not filtered)
+  const allBookingItems = [...new Set(entries.map(e => e.booking_item_text).filter(Boolean))] as string[]
+  const allFilterTasks = entries.reduce<{ id: string; name: string }[]>((acc, e) => {
+    if (e.task_id && e.task && !acc.find(t => t.id === e.task_id))
+      acc.push({ id: e.task_id, name: e.task.name })
+    return acc
+  }, [])
+
+  // Generic grouping function → flat EntryGroup structure
+  interface EntryGroup { key: string; label: string; totalNet: number; entries: EntryWithRelations[] }
+  function computeGroups(es: EntryWithRelations[], by: GroupBy): EntryGroup[] {
+    const map = new Map<string, EntryGroup>()
+    for (const e of es) {
+      let key: string, label: string
+      switch (by) {
+        case "day":          key = e.date;                   label = formatDate(e.date); break
+        case "client":       key = e.client_id;              label = e.client?.name ?? e.client_id; break
+        case "booking_item": key = e.booking_item_text || ""; label = e.booking_item_text || "(kein Buchungsposten)"; break
+        case "task":         key = e.task_id || "";           label = e.task?.name || "(keine Aufgabe)"; break
       }
-      const cGroup = clientMap.get(cId)!
-      cGroup.totalNet += entry.net_h
-      if (!cGroup.dates.has(entry.date)) {
-        cGroup.dates.set(entry.date, [])
-      }
-      cGroup.dates.get(entry.date)!.push(entry)
+      if (!map.has(key)) map.set(key, { key, label, totalNet: 0, entries: [] })
+      const g = map.get(key)!
+      g.totalNet += e.net_h
+      g.entries.push(e)
     }
-    return Array.from(clientMap.entries()).sort((a, b) => a[1].clientName.localeCompare(b[1].clientName))
+    const groups = Array.from(map.values())
+    if (by === "day") groups.sort((a, b) => b.key.localeCompare(a.key))
+    else groups.sort((a, b) => a.label.localeCompare(b.label))
+    groups.forEach(g => g.entries.sort((a, b) => {
+      const dateCmp = a.date.localeCompare(b.date)
+      const timeCmp = a.time_from.localeCompare(b.time_from)
+      return sortAsc ? (dateCmp || timeCmp) : -(dateCmp || timeCmp)
+    }))
+    return groups
   }
 
   const filteredProjects = projects.filter(p =>
@@ -327,7 +391,7 @@ export default function TimePage() {
 
   const totalHours = entries.reduce((s, e) => s + e.net_h, 0)
   const monthLabel = currentDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" })
-  const grouped = groupByClientAndDate(entries)
+  const grouped = computeGroups(displayEntries, groupBy)
 
   return (
     <div className="space-y-6">
@@ -594,9 +658,25 @@ export default function TimePage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <CardTitle className="text-base">{monthLabel}</CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Sort order toggle */}
+              <button onClick={() => setSortAsc(v => !v)}
+                className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                {sortAsc ? "↑ Älteste zuerst" : "↓ Neueste zuerst"}
+              </button>
+              {/* Segmented grouping control */}
+              <div className="flex items-center rounded-md border p-0.5 gap-0.5">
+                {(["day", "client", "booking_item", "task"] as const).map(opt => (
+                  <button key={opt} onClick={() => setGroupBy(opt)}
+                    className={cn("px-2 py-1 text-xs rounded transition-colors",
+                      groupBy === opt ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
+                    )}>
+                    {opt === "day" ? "Tag" : opt === "client" ? "Kunde" : opt === "booking_item" ? "Buchungsposten" : "Aufgabe"}
+                  </button>
+                ))}
+              </div>
               <span className="text-sm text-muted-foreground">
                 {t("total")}: <strong>{formatHours(totalHours)}</strong>
               </span>
@@ -615,67 +695,118 @@ export default function TimePage() {
           {entries.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t("noEntriesThisMonth")}</p>
           ) : (
-            <div>
-              {grouped.map(([clientId, { clientName, totalNet, dates }]) => (
-                <div key={clientId}>
-                  {/* Client header */}
-                  <div className="flex items-center justify-between px-6 py-2 bg-muted/50 border-y">
-                    <span className="text-sm font-semibold">{clientName}</span>
-                    <span className="text-xs text-muted-foreground font-mono">{formatHours(totalNet)}</span>
-                  </div>
-                  {/* Date groups */}
-                  <div className="divide-y">
-                    {Array.from(dates.entries())
-                      .sort(([a], [b]) => b.localeCompare(a))
-                      .map(([date, dayEntries]) => (
-                        <div key={date}>
-                          {dayEntries.map((entry) => (
-                            <div key={entry.id} className="flex items-start gap-3 px-6 py-3 hover:bg-muted/30 group">
-                              <div className="w-20 shrink-0 text-sm text-muted-foreground pt-0.5">
-                                {formatDate(entry.date)}
-                              </div>
-                              <div className="w-24 shrink-0 text-sm text-muted-foreground font-mono pt-0.5">
-                                {entry.time_from}–{entry.time_to}
-                              </div>
-                              <Badge variant="outline" className="shrink-0 text-xs mt-0.5">{entry.code}</Badge>
-                              <div className="flex-1 min-w-0 space-y-0.5">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {entry.project?.name && (
-                                    <span className="text-xs text-muted-foreground">/ {entry.project.name}</span>
-                                  )}
-                                  {entry.task && (
-                                    <Badge variant="secondary" className="text-xs">📋 {entry.task.name}</Badge>
-                                  )}
-                                </div>
-                                {entry.booking_item_text && (
-                                  <p className="text-xs text-muted-foreground font-mono">{entry.booking_item_text}</p>
-                                )}
-                                {entry.description && (
-                                  <p className="text-xs text-muted-foreground">{entry.description}</p>
-                                )}
-                              </div>
-                              {entry.remote && <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">Remote</Badge>}
-                              <span className="text-sm font-medium shrink-0 w-12 text-right pt-0.5">
-                                {formatHours(entry.net_h)}
-                              </span>
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
-                                  onClick={() => openEdit(entry)}>
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleDelete(entry.id)}>
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
+            <>
+              {/* Filter bar */}
+              <div className="px-6 py-2 border-b flex flex-wrap gap-2 items-center">
+                <Select value={filterClient || "__all__"} onValueChange={v => setFilterClient(v === "__all__" ? "" : v)}>
+                  <SelectTrigger className="h-7 w-36 text-xs"><SelectValue placeholder="Kunde…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Alle</SelectItem>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filterBookingItem || "__all__"} onValueChange={v => setFilterBookingItem(v === "__all__" ? "" : v)}>
+                  <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="Buchungsposten…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Alle</SelectItem>
+                    {allBookingItems.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filterTask || "__all__"} onValueChange={v => setFilterTask(v === "__all__" ? "" : v)}>
+                  <SelectTrigger className="h-7 w-36 text-xs"><SelectValue placeholder="Aufgabe…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Alle</SelectItem>
+                    {allFilterTasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {filterClient && (
+                  <Badge variant="secondary" className="gap-1 text-xs">
+                    {clients.find(c => c.id === filterClient)?.name}
+                    <button onClick={() => setFilterClient("")} className="ml-1 hover:text-destructive">×</button>
+                  </Badge>
+                )}
+                {filterBookingItem && (
+                  <Badge variant="secondary" className="gap-1 text-xs">
+                    {filterBookingItem}
+                    <button onClick={() => setFilterBookingItem("")} className="ml-1 hover:text-destructive">×</button>
+                  </Badge>
+                )}
+                {filterTask && (
+                  <Badge variant="secondary" className="gap-1 text-xs">
+                    {allFilterTasks.find(t => t.id === filterTask)?.name}
+                    <button onClick={() => setFilterTask("")} className="ml-1 hover:text-destructive">×</button>
+                  </Badge>
+                )}
+                {(filterClient || filterBookingItem || filterTask) && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs"
+                    onClick={() => { setFilterClient(""); setFilterBookingItem(""); setFilterTask("") }}>
+                    Filter zurücksetzen
+                  </Button>
+                )}
+              </div>
+
+              {/* Grouped entries */}
+              <div>
+                {grouped.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">Keine Einträge für diesen Filter.</p>
+                ) : grouped.map(group => (
+                  <div key={group.key}>
+                    <div className="flex items-center justify-between px-6 py-2 bg-muted/50 border-y">
+                      <span className="text-sm font-semibold">{group.label}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{formatHours(group.totalNet)}</span>
+                    </div>
+                    <div className="divide-y">
+                      {group.entries.map((entry) => (
+                        <div key={entry.id} className="flex items-start gap-3 px-6 py-3 hover:bg-muted/30 group">
+                          <div className="w-20 shrink-0 text-sm text-muted-foreground pt-0.5">
+                            {formatDate(entry.date)}
+                          </div>
+                          <div className="w-24 shrink-0 text-sm text-muted-foreground font-mono pt-0.5">
+                            {entry.time_from}–{entry.time_to}
+                          </div>
+                          <Badge variant="outline" className="shrink-0 text-xs mt-0.5">{entry.code}</Badge>
+                          <div className="flex-1 min-w-0 space-y-0.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {entry.project?.name && (
+                                <span className="text-xs text-muted-foreground">/ {entry.project.name}</span>
+                              )}
+                              {entry.task && (
+                                <Badge variant="secondary" className="text-xs">📋 {entry.task.name}</Badge>
+                              )}
                             </div>
-                          ))}
+                            {entry.booking_item_text && (
+                              <p className="text-xs text-muted-foreground font-mono">{entry.booking_item_text}</p>
+                            )}
+                            {entry.description && (
+                              <p className="text-xs text-muted-foreground">{entry.description}</p>
+                            )}
+                          </div>
+                          {entry.client?.name && <Badge variant="outline" className="text-xs shrink-0 mt-0.5">{entry.client.name}</Badge>}
+                          {entry.remote && <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">Remote</Badge>}
+                          <span className="text-sm font-medium shrink-0 w-12 text-right pt-0.5">
+                            {formatHours(entry.net_h)}
+                          </span>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                              title="Klonen" onClick={() => openClone(entry)}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground"
+                              onClick={() => openEdit(entry)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDelete(entry.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

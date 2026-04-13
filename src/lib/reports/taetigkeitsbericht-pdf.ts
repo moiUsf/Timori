@@ -58,9 +58,7 @@ function fh(h: number): string {
 
 function fPause(min: number): string {
   if (min === 0) return ""
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`
+  return (min / 60).toFixed(1).replace(".", ",")
 }
 
 export function generatePDF(data: ReportData, labels: PdfLabels = DEFAULT_PDF_LABELS): Blob {
@@ -154,9 +152,22 @@ export function generatePDF(data: ReportData, labels: PdfLabels = DEFAULT_PDF_LA
     margin: { left: marginL, right: marginR },
   })
 
-  // ── Buchungskonten Übersicht ─────────────────────────────
+  // ── Gesamt-Zeile unter Haupttabelle ─────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let afterTable = (doc as any).lastAutoTable.finalY + 8
+  const mainTableEndY = (doc as any).lastAutoTable.finalY
+  // Trennlinie
+  doc.setDrawColor(0)
+  doc.setLineWidth(0.4)
+  doc.line(marginL, mainTableEndY + 2, 184, mainTableEndY + 2)
+  // Label + Wert
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(7.5)
+  doc.text("Gesamt:", marginL, mainTableEndY + 7)
+  doc.text(fh(data.gesamtNetto), 184, mainTableEndY + 7, { align: "right" })
+  doc.setFont("helvetica", "normal")
+
+  // ── Buchungskonten Übersicht ─────────────────────────────
+  let afterTable = mainTableEndY + 16
   const pageH = doc.internal.pageSize.height
   if (pageH - afterTable < 50) {
     doc.addPage()
