@@ -118,6 +118,12 @@ export default function TimePage() {
   useEffect(() => { if (userId) loadEntries() }, [userId, loadEntries])
 
   useEffect(() => {
+    const handler = () => { if (userId) loadEntries() }
+    window.addEventListener("timori:timer-stopped", handler)
+    return () => window.removeEventListener("timori:timer-stopped", handler)
+  }, [loadEntries, userId])
+
+  useEffect(() => {
     if (!form.client_id || !userId) { setProjects([]); setBookingItems([]); return }
     Promise.all([
       supabase.from("projects").select("*").eq("client_id", form.client_id).eq("active", true).order("name"),

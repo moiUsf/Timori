@@ -116,6 +116,26 @@ export default function DashboardPage() {
     })
   }, [supabase, loadData])
 
+  useEffect(() => {
+    if (!userId) return
+    const reload = () =>
+      supabase.from("active_timers").select("id").eq("user_id", userId)
+        .then(({ data }) => setActiveTimerCount(data?.length ?? 0))
+
+    const channel = supabase
+      .channel("dashboard_active_timers")
+      .on("postgres_changes", { event: "*", schema: "public", table: "active_timers" }, reload)
+      .subscribe()
+
+    window.addEventListener("timori:timer-started", reload)
+    window.addEventListener("timori:timer-stopped", reload)
+    return () => {
+      supabase.removeChannel(channel)
+      window.removeEventListener("timori:timer-started", reload)
+      window.removeEventListener("timori:timer-stopped", reload)
+    }
+  }, [supabase, userId])
+
   async function saveBookedDays(clientId: string, days: number) {
     const value = isNaN(days) || days < 0 ? 0 : days
     await supabase.from("clients").update({ monthly_booked_days: value }).eq("id", clientId)
