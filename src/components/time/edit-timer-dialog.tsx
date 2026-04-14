@@ -9,9 +9,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Save } from "lucide-react"
+import { Save, Plus } from "lucide-react"
 
 const HOUR_CODES: { value: HourCode; label: string }[] = [
   { value: "BEV", label: "BEV — Beratung verrechenbar" },
@@ -46,6 +46,10 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
   const [bookingItemText, setBookingItemText] = useState("")
   const [startedAt, setStartedAt] = useState("")
   const [saving, setSaving] = useState(false)
+  const [creatingProject, setCreatingProject] = useState(false)
+  const [newProjectName, setNewProjectName] = useState("")
+  const [creatingTask, setCreatingTask] = useState(false)
+  const [newTaskName, setNewTaskName] = useState("")
 
   // Re-init fields whenever this dialog opens (handles switching between timers)
   useEffect(() => {
@@ -98,6 +102,40 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
     }
     loadTasks()
   }, [open, projectId, timer.client_id, timer.user_id, supabase])
+
+  async function handleCreateProject() {
+    if (!newProjectName.trim() || !timer.client_id) return
+    const { data, error } = await supabase.from("projects").insert({
+      user_id: timer.user_id,
+      client_id: timer.client_id,
+      name: newProjectName.trim(),
+      active: true,
+    }).select().single()
+    if (error) { toast.error("Fehler: " + error.message); return }
+    setProjects(prev => [...prev, data as Project].sort((a, b) => a.name.localeCompare(b.name)))
+    setProjectId(data.id)
+    setTaskId("")
+    setCreatingProject(false)
+    setNewProjectName("")
+    toast.success("Projekt erstellt")
+  }
+
+  async function handleCreateTask() {
+    if (!newTaskName.trim()) return
+    const { data, error } = await supabase.from("tasks").insert({
+      user_id: timer.user_id,
+      name: newTaskName.trim(),
+      project_id: projectId || null,
+      client_id: projectId ? null : (timer.client_id || null),
+      active: true,
+    }).select().single()
+    if (error) { toast.error("Fehler: " + error.message); return }
+    setTasks(prev => [...prev, data as Task].sort((a, b) => a.name.localeCompare(b.name)))
+    setTaskId(data.id)
+    setCreatingTask(false)
+    setNewTaskName("")
+    toast.success("Aufgabe erstellt")
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -158,26 +196,64 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
             <Label>Projekt</Label>
             <Select
               value={projectId || "_none"}
-              onValueChange={v => { setProjectId(v === "_none" ? "" : v); setTaskId("") }}
+              onValueChange={v => {
+                if (v === "_create_project") { setCreatingProject(true); setNewProjectName(""); return }
+                setProjectId(v === "_none" ? "" : v)
+                setTaskId("")
+                setCreatingProject(false)
+              }}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">— Kein Projekt —</SelectItem>
                 {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                <SelectSeparator />
+                <SelectItem value="_create_project" className="text-primary font-medium">
+                  <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" />Neues Projekt erstellen</span>
+                </SelectItem>
               </SelectContent>
             </Select>
+            {creatingProject && (
+              <div className="flex gap-1.5">
+                <Input autoFocus placeholder="Projektname..." value={newProjectName}
+                  onChange={e => setNewProjectName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleCreateProject() } if (e.key === "Escape") setCreatingProject(false) }} />
+                <Button type="button" size="sm" onClick={handleCreateProject} disabled={!newProjectName.trim()} className="shrink-0"><Plus className="h-4 w-4" /></Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setCreatingProject(false)} className="shrink-0 text-muted-foreground">✕</Button>
+              </div>
+            )}
           </div>
 
           {/* Task */}
           <div className="space-y-2">
             <Label>Aufgabe (optional)</Label>
-            <Select value={taskId || "_none"} onValueChange={v => setTaskId(v === "_none" ? "" : v)}>
+            <Select
+              value={taskId || "_none"}
+              onValueChange={v => {
+                if (v === "_create_task") { setCreatingTask(true); setNewTaskName(""); return }
+                setTaskId(v === "_none" ? "" : v)
+                setCreatingTask(false)
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
                 {tasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                <SelectSeparator />
+                <SelectItem value="_create_task" className="text-primary font-medium">
+                  <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen</span>
+                </SelectItem>
               </SelectContent>
             </Select>
+            {creatingTask && (
+              <div className="flex gap-1.5">
+                <Input autoFocus placeholder="Aufgabenname..." value={newTaskName}
+                  onChange={e => setNewTaskName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleCreateTask() } if (e.key === "Escape") setCreatingTask(false) }} />
+                <Button type="button" size="sm" onClick={handleCreateTask} disabled={!newTaskName.trim()} className="shrink-0"><Plus className="h-4 w-4" /></Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setCreatingTask(false)} className="shrink-0 text-muted-foreground">✕</Button>
+              </div>
+            )}
           </div>
 
           {/* Code */}

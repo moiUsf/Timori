@@ -3,14 +3,13 @@
 import { useEffect, useState, useCallback } from "react"
 import { Play, Pause, Square, Plus, Pencil, Trash2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import type { ActiveTimer, Client, Project } from "@/types/database"
+import type { ActiveTimer, Client, Project, Task } from "@/types/database"
 import { formatDuration } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { StartTimerDialog } from "./start-timer-dialog"
 import { EditTimerDialog } from "./edit-timer-dialog"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -18,6 +17,7 @@ import {
 interface TimerWithRelations extends ActiveTimer {
   client: Client
   project: Project
+  task?: Task
 }
 
 interface ActiveTimersBarProps {
@@ -26,7 +26,6 @@ interface ActiveTimersBarProps {
 
 export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   const supabase = createClient()
-  const router = useRouter()
   const [timers, setTimers] = useState<TimerWithRelations[]>([])
   const [now, setNow] = useState(Date.now())
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -42,7 +41,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   const loadTimers = useCallback(async () => {
     const { data } = await supabase
       .from("active_timers")
-      .select("*, client:clients(*), project:projects(*)")
+      .select("*, client:clients(*), project:projects(*), task:tasks(*)")
       .eq("user_id", userId)
       .order("created_at", { ascending: true })
 
@@ -122,7 +121,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
     await supabase.from("active_timers").delete().eq("id", timer.id)
     toast.success(`Zeiteintrag gespeichert: ${formatDuration(elapsedMs)}`)
     loadTimers()
-    router.refresh()
+    window.dispatchEvent(new CustomEvent("timori:timer-stopped"))
   }
 
   async function handleDelete() {
@@ -144,7 +143,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
           userId={userId}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          onCreated={() => { loadTimers(); router.refresh() }}
+          onCreated={() => { loadTimers(); window.dispatchEvent(new CustomEvent("timori:timer-started")) }}
         />
         {editingTimer && (
           <EditTimerDialog
@@ -159,7 +158,12 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 overflow-x-auto">
+    <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3">
+      <Button className="shrink-0 gap-2" onClick={() => setDialogOpen(true)}>
+        <Plus className="h-4 w-4" />
+        Neuer Timer
+      </Button>
+      <div className="flex items-center gap-3 overflow-x-auto min-w-0">
       {timers.map((timer) => {
         const elapsed = getElapsed(timer)
         const isPaused = !!timer.paused_at
@@ -185,7 +189,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
                   </span>
                 </div>
                 <span className="text-xs text-muted-foreground truncate max-w-[160px]">
-                  {timer.project?.name ?? <span className="italic">Kein Projekt</span>}
+                  {[timer.project?.name, timer.task?.name, timer.description].filter(Boolean).join(" · ") || <span className="italic">Kein Projekt</span>}
                 </span>
               </div>
               <span
@@ -228,15 +232,12 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
           </div>
         )
       })}
-      <Button className="shrink-0 gap-2" onClick={() => setDialogOpen(true)}>
-        <Plus className="h-4 w-4" />
-        Neuer Timer
-      </Button>
+      </div>
       <StartTimerDialog
         userId={userId}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={() => { loadTimers(); router.refresh() }}
+        onCreated={() => { loadTimers(); window.dispatchEvent(new CustomEvent("timori:timer-started")) }}
       />
       {editingTimer && (
         <EditTimerDialog
