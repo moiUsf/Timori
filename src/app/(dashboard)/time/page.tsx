@@ -22,6 +22,13 @@ type EntryWithRelations = TimeEntry & { client: Client; project: Project; task?:
 
 const HOUR_CODES = ["BEV", "BENV", "RZV", "RZNV"] as const
 
+const MONTHS_DE = [
+  "Januar","Februar","März","April","Mai","Juni",
+  "Juli","August","September","Oktober","November","Dezember",
+]
+const THIS_YEAR = new Date().getFullYear()
+const YEAR_RANGE = Array.from({ length: 7 }, (_, i) => THIS_YEAR - 5 + i)
+
 const emptyForm = () => ({
   date: new Date().toISOString().slice(0, 10),
   time_from: "09:00",
@@ -407,7 +414,6 @@ export default function TimePage() {
   )
 
   const totalHours = entries.reduce((s, e) => s + e.net_h, 0)
-  const monthLabel = currentDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" })
   const grouped = computeGroups(displayEntries, groupBy)
 
   return (
@@ -699,7 +705,36 @@ export default function TimePage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <CardTitle className="text-base">{monthLabel}</CardTitle>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon" className="h-9 w-9"
+                onClick={() => setCurrentDate(new Date(year, month - 2, 1))}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Select value={String(month - 1)} onValueChange={v => setCurrentDate(new Date(year, Number(v), 1))}>
+                <SelectTrigger className="h-9 w-[120px] text-sm font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTHS_DE.map((name, i) => (
+                    <SelectItem key={i} value={String(i)}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(year)} onValueChange={v => setCurrentDate(new Date(Number(v), month - 1, 1))}>
+                <SelectTrigger className="h-9 w-[80px] text-sm font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEAR_RANGE.map(y => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon" className="h-9 w-9"
+                onClick={() => setCurrentDate(new Date(year, month, 1))}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             <div className="flex items-center gap-2 flex-wrap">
               {/* Sort order toggle */}
               <button onClick={() => setSortAsc(v => !v)}
@@ -720,14 +755,6 @@ export default function TimePage() {
               <span className="text-sm text-muted-foreground">
                 {t("total")}: <strong>{formatHours(totalHours)}</strong>
               </span>
-              <Button variant="outline" size="icon" className="h-9 w-9"
-                onClick={() => setCurrentDate(new Date(year, month - 2, 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="h-9 w-9"
-                onClick={() => setCurrentDate(new Date(year, month, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </CardHeader>

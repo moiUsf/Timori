@@ -135,8 +135,8 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   if (timers.length === 0 && !dialogOpen) {
     return (
       <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3">
-        <Button variant="ghost" size="sm" className="gap-2" onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
+        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+          <Play className="h-4 w-4" />
           Timer starten
         </Button>
         <StartTimerDialog
@@ -227,7 +227,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
           </div>
         )
       })}
-      <Button variant="ghost" size="sm" className="shrink-0 gap-1.5" onClick={() => setDialogOpen(true)}>
+      <Button className="shrink-0 gap-2" onClick={() => setDialogOpen(true)}>
         <Plus className="h-4 w-4" />
         Neuer Timer
       </Button>
