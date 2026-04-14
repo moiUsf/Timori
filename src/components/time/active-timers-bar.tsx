@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from "react"
 import { Play, Pause, Square, Plus, Pencil, Trash2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { ActiveTimer, Client, Project, Task } from "@/types/database"
+import { useTimerDisplay } from "@/lib/timer-display-context"
+import type { TimerFieldItem } from "@/lib/timer-display-context"
 import { formatDuration } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { StartTimerDialog } from "./start-timer-dialog"
 import { EditTimerDialog } from "./edit-timer-dialog"
 import { toast } from "sonner"
@@ -24,40 +25,14 @@ interface ActiveTimersBarProps {
   userId: string
 }
 
-type TimerField = "projekt" | "buchungsposten" | "aufgabe" | "beschreibung"
-type TimerFieldItem = { field: TimerField; enabled: boolean }
-
-const TIMER_STORAGE_KEY = "timerDisplayFields"
-const DEFAULT_TIMER_FIELDS: TimerFieldItem[] = [
-  { field: "projekt", enabled: true },
-  { field: "buchungsposten", enabled: true },
-  { field: "aufgabe", enabled: true },
-  { field: "beschreibung", enabled: true },
-]
-
-function loadTimerFields(): TimerFieldItem[] {
-  try {
-    const raw = localStorage.getItem(TIMER_STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as TimerFieldItem[]
-  } catch { /* ignore */ }
-  return DEFAULT_TIMER_FIELDS
-}
-
 export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   const supabase = createClient()
+  const { timerFields } = useTimerDisplay()
   const [timers, setTimers] = useState<TimerWithRelations[]>([])
-  const [timerFields, setTimerFields] = useState<TimerFieldItem[]>(DEFAULT_TIMER_FIELDS)
   const [now, setNow] = useState(Date.now())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTimer, setEditingTimer] = useState<TimerWithRelations | null>(null)
   const [deletingTimerId, setDeletingTimerId] = useState<string | null>(null)
-
-  useEffect(() => {
-    setTimerFields(loadTimerFields())
-    const handler = () => setTimerFields(loadTimerFields())
-    window.addEventListener("timori:timer-display-changed", handler)
-    return () => window.removeEventListener("timori:timer-display-changed", handler)
-  }, [])
 
   // Tick every second
   useEffect(() => {

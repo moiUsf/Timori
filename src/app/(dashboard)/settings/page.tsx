@@ -16,6 +16,7 @@ import { Sun, Moon, Monitor, ChevronUp, ChevronDown, FolderOpen, Download, Uploa
 import { saveHandleToIDB, loadHandleFromIDB, downloadBlob, isBackupDue } from "@/lib/backup-idb"
 import type { TaetigkeitField } from "@/types/database"
 import { DEFAULT_TAETIGKEIT_FIELDS } from "@/lib/reports/taetigkeitsbericht-data"
+import { useTimerDisplay } from "@/lib/timer-display-context"
 
 type FieldItem = { field: TaetigkeitField; enabled: boolean }
 
@@ -83,6 +84,7 @@ export default function SettingsPage() {
   const tCommon = useTranslations("common")
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(false)
+  const { timerFields: ctxTimerFields, saveTimerFields } = useTimerDisplay()
   const [fieldItems, setFieldItems] = useState<FieldItem[]>(buildFieldItems(DEFAULT_TAETIGKEIT_FIELDS))
   const [savingConfig, setSavingConfig] = useState(false)
   const [timerFieldItems, setTimerFieldItems] = useState<TimerFieldItem[]>(TIMER_ALL_FIELDS.map(f => ({ field: f, enabled: true })))
@@ -104,7 +106,7 @@ export default function SettingsPage() {
     setBackupSchedule(schedule)
     setLastBackupAt(last)
     setBackupFolderName(folder)
-    setTimerFieldItems(loadTimerFieldItems())
+    setTimerFieldItems(loadTimerFieldItems()) // also synced from context via ctxTimerFields below
     if (isBackupDue(schedule, last)) {
       triggerExport()
     }
@@ -317,8 +319,7 @@ export default function SettingsPage() {
     setTimerFieldItems(items)
   }
   function saveTimerConfig() {
-    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timerFieldItems))
-    window.dispatchEvent(new CustomEvent("timori:timer-display-changed"))
+    saveTimerFields(timerFieldItems)
     toast.success("Timer-Anzeige gespeichert")
   }
 
