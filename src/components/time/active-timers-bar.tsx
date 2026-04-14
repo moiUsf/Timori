@@ -122,6 +122,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
     await supabase.from("active_timers").delete().eq("id", timer.id)
     toast.success(`Zeiteintrag gespeichert: ${formatDuration(elapsedMs)}`)
     loadTimers()
+    router.refresh()
   }
 
   async function handleDelete() {
