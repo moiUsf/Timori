@@ -121,6 +121,10 @@ export default function DashboardPage() {
     const last = localStorage.getItem("lastBackupAt")
     const time = localStorage.getItem("backupTime") ?? "02:00"
     if (isBackupDue(schedule, last, time)) setBackupReminder(true)
+
+    const onBackupDone = () => setBackupReminder(false)
+    window.addEventListener("timori:backup-done", onBackupDone)
+    return () => window.removeEventListener("timori:backup-done", onBackupDone)
   }, [supabase, loadData])
 
   useEffect(() => {

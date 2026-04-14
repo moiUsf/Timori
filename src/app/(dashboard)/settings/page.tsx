@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { toast } from "sonner"
 import { Sun, Moon, Monitor, ChevronUp, ChevronDown, Download, Upload } from "lucide-react"
-import { downloadBlob, isBackupDue } from "@/lib/backup-idb"
+import { downloadBlob } from "@/lib/backup-idb"
 import type { TaetigkeitField } from "@/types/database"
 import { DEFAULT_TAETIGKEIT_FIELDS } from "@/lib/reports/taetigkeitsbericht-data"
 import { useTimerDisplay } from "@/lib/timer-display-context"
@@ -109,9 +109,6 @@ export default function SettingsPage() {
     setBackupTime(time)
     setLastBackupAt(last)
     setTimerFieldItems(loadTimerFieldItems()) // also synced from context via ctxTimerFields below
-    if (isBackupDue(schedule, last, time)) {
-      triggerExport()
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
