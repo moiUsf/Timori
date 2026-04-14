@@ -82,6 +82,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const t = useTranslations("settings")
   const tCommon = useTranslations("common")
+  const [mounted, setMounted] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(false)
   const { timerFields: ctxTimerFields, saveTimerFields } = useTimerDisplay()
@@ -100,6 +101,7 @@ export default function SettingsPage() {
   const importFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    setMounted(true)
     const schedule = (localStorage.getItem("backupSchedule") ?? "never") as typeof backupSchedule
     const last = localStorage.getItem("lastBackupAt")
     const time = localStorage.getItem("backupTime") ?? "02:00"
@@ -358,7 +360,7 @@ export default function SettingsPage() {
             <div className="flex gap-2">
               <Button
                 type="button"
-                variant={theme === "light" ? "default" : "outline"}
+                variant={mounted && theme === "light" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setTheme("light")}
                 className="flex items-center gap-2"
@@ -368,7 +370,7 @@ export default function SettingsPage() {
               </Button>
               <Button
                 type="button"
-                variant={theme === "dark" ? "default" : "outline"}
+                variant={mounted && theme === "dark" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setTheme("dark")}
                 className="flex items-center gap-2"
@@ -378,7 +380,7 @@ export default function SettingsPage() {
               </Button>
               <Button
                 type="button"
-                variant={theme === "system" ? "default" : "outline"}
+                variant={mounted && theme === "system" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setTheme("system")}
                 className="flex items-center gap-2"
