@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Menu, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Sidebar } from "./sidebar"
 import { ActiveTimersBar } from "@/components/time/active-timers-bar"
 import { TimerDisplayProvider } from "@/lib/timer-display-context"
+import { isBackupDue, downloadBlob } from "@/lib/backup-idb"
 import type { UserProfile } from "@/types/database"
 import type { User } from "@supabase/supabase-js"
 
@@ -19,6 +20,40 @@ export function DashboardShell({
   children: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const backupInProgress = useRef(false)
+
+  useEffect(() => {
+    async function checkAndBackup() {
+      if (backupInProgress.current) return
+      const schedule = (localStorage.getItem("backupSchedule") ?? "never") as "never"|"daily"|"weekly"|"monthly"
+      const last = localStorage.getItem("lastBackupAt")
+      const time = localStorage.getItem("backupTime") ?? "02:00"
+      if (!isBackupDue(schedule, last, time)) return
+
+      backupInProgress.current = true
+      try {
+        const res = await fetch("/api/backup/export")
+        if (!res.ok) return
+        const json = await res.json()
+        const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
+        const now = new Date()
+        const pad = (n: number) => String(n).padStart(2, "0")
+        const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
+        downloadBlob(blob, `timori-backup-${ts}.json`)
+        localStorage.setItem("lastBackupAt", now.toISOString())
+        // Notify dashboard reminder to hide if visible
+        window.dispatchEvent(new CustomEvent("timori:backup-done"))
+      } catch {
+        // silent — dashboard reminder will still show on next login
+      } finally {
+        backupInProgress.current = false
+      }
+    }
+
+    checkAndBackup() // immediate check on mount (catches missed backups)
+    const interval = setInterval(checkAndBackup, 60_000) // re-check every minute
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <TimerDisplayProvider>
