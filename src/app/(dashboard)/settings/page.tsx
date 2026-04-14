@@ -12,8 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { toast } from "sonner"
-import { Sun, Moon, Monitor, ChevronUp, ChevronDown, Download, Upload } from "lucide-react"
-import { downloadBlob } from "@/lib/backup-idb"
+import { Sun, Moon, Monitor, ChevronUp, ChevronDown, FolderOpen, Download, Upload } from "lucide-react"
+import { saveHandleToIDB, loadHandleFromIDB, downloadBlob, writeToFolder } from "@/lib/backup-idb"
 import type { TaetigkeitField } from "@/types/database"
 import { DEFAULT_TAETIGKEIT_FIELDS } from "@/lib/reports/taetigkeitsbericht-data"
 import { useTimerDisplay } from "@/lib/timer-display-context"
@@ -95,6 +95,7 @@ export default function SettingsPage() {
   })
   const [backupSchedule, setBackupSchedule] = useState<"never"|"daily"|"weekly"|"monthly">("never")
   const [backupTime, setBackupTime] = useState("02:00")
+  const [backupFolderName, setBackupFolderName] = useState<string|null>(null)
   const [lastBackupAt, setLastBackupAt] = useState<string|null>(null)
   const [exportLoading, setExportLoading] = useState(false)
   const [importLoading, setImportLoading] = useState(false)
@@ -105,12 +106,31 @@ export default function SettingsPage() {
     const schedule = (localStorage.getItem("backupSchedule") ?? "never") as typeof backupSchedule
     const last = localStorage.getItem("lastBackupAt")
     const time = localStorage.getItem("backupTime") ?? "02:00"
+    const folder = localStorage.getItem("backupFolderName")
     setBackupSchedule(schedule)
     setBackupTime(time)
+    setBackupFolderName(folder)
     setLastBackupAt(last)
     setTimerFieldItems(loadTimerFieldItems()) // also synced from context via ctxTimerFields below
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function handleSelectFolder() {
+    if (!("showDirectoryPicker" in window)) {
+      toast.info("Ordner-Auswahl wird von diesem Browser nicht unterstützt")
+      return
+    }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handle = await (window as any).showDirectoryPicker({ mode: "readwrite" })
+      await saveHandleToIDB(handle)
+      setBackupFolderName(handle.name)
+      localStorage.setItem("backupFolderName", handle.name)
+      toast.success(`Ordner „${handle.name}" gespeichert`)
+    } catch {
+      // user cancelled
+    }
+  }
 
   async function triggerExport() {
     setExportLoading(true)
@@ -122,10 +142,33 @@ export default function SettingsPage() {
       const now2 = new Date()
       const pad = (n: number) => String(n).padStart(2, "0")
       const ts = `${now2.getFullYear()}-${pad(now2.getMonth()+1)}-${pad(now2.getDate())}_${pad(now2.getHours())}-${pad(now2.getMinutes())}-${pad(now2.getSeconds())}`
-      downloadBlob(blob, `timori-backup-${ts}.json`)
-      const now = new Date().toISOString()
-      setLastBackupAt(now)
-      localStorage.setItem("lastBackupAt", now)
+      const filename = `timori-backup-${ts}.json`
+
+      const handle = await loadHandleFromIDB()
+      // Try folder first (will prompt for permission if needed, since this is user-initiated)
+      if (handle) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const h = handle as any
+          let perm = await h.queryPermission?.({ mode: "readwrite" }) ?? "prompt"
+          if (perm !== "granted") perm = await h.requestPermission?.({ mode: "readwrite" }) ?? "denied"
+          if (perm === "granted") {
+            const fileHandle = await handle.getFileHandle(filename, { create: true })
+            const writable = await fileHandle.createWritable()
+            await writable.write(blob)
+            await writable.close()
+            const iso = new Date().toISOString()
+            setLastBackupAt(iso)
+            localStorage.setItem("lastBackupAt", iso)
+            toast.success(`Backup gespeichert in „${backupFolderName ?? handle.name}"`)
+            return
+          }
+        } catch { /* fall through to download */ }
+      }
+      downloadBlob(blob, filename)
+      const iso = new Date().toISOString()
+      setLastBackupAt(iso)
+      localStorage.setItem("lastBackupAt", iso)
       toast.success("Backup erstellt")
     } catch {
       toast.error("Backup fehlgeschlagen")
@@ -474,6 +517,24 @@ export default function SettingsPage() {
           <CardTitle className="text-base">Backup</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Folder selection */}
+          <div className="space-y-2">
+            <Label>Backup-Ordner</Label>
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={backupFolderName ?? ""}
+                placeholder="Ordner wählen…"
+                className="flex-1 font-mono text-sm"
+              />
+              <Button type="button" variant="outline" onClick={handleSelectFolder} className="gap-2 shrink-0">
+                <FolderOpen className="h-4 w-4" />
+                Ordner wählen
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Einmalig einrichten — automatische Backups werden direkt in diesen Ordner gespeichert.</p>
+          </div>
+
           {/* Schedule + time + last backup */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">

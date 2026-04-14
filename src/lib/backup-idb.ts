@@ -42,8 +42,31 @@ export function downloadBlob(blob: Blob, filename: string) {
   const a = document.createElement("a")
   a.href = url
   a.download = filename
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
+/** Write blob to a folder handle. Returns true if written, false if permission not granted. */
+export async function writeToFolder(
+  handle: FileSystemDirectoryHandle,
+  blob: Blob,
+  filename: string
+): Promise<boolean> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const h = handle as any
+    const perm = await h.queryPermission?.({ mode: "readwrite" }) ?? "prompt"
+    if (perm !== "granted") return false
+    const fileHandle = await handle.getFileHandle(filename, { create: true })
+    const writable = await fileHandle.createWritable()
+    await writable.write(blob)
+    await writable.close()
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function isBackupDue(
