@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Sidebar } from "./sidebar"
 import { ActiveTimersBar } from "@/components/time/active-timers-bar"
 import { TimerDisplayProvider } from "@/lib/timer-display-context"
-import { isBackupDue, downloadBlob } from "@/lib/backup-idb"
+import { isBackupDue, downloadBlob, loadHandleFromIDB, writeToFolder } from "@/lib/backup-idb"
 import type { UserProfile } from "@/types/database"
 import type { User } from "@supabase/supabase-js"
 
@@ -39,7 +39,15 @@ export function DashboardShell({
         const now = new Date()
         const pad = (n: number) => String(n).padStart(2, "0")
         const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
-        downloadBlob(blob, `timori-backup-${ts}.json`)
+        const filename = `timori-backup-${ts}.json`
+
+        // Try saving to the user's chosen folder first (no permission prompt for auto-backup)
+        const handle = await loadHandleFromIDB()
+        const savedToFolder = handle ? await writeToFolder(handle, blob, filename) : false
+        if (!savedToFolder) {
+          downloadBlob(blob, filename)
+        }
+
         localStorage.setItem("lastBackupAt", now.toISOString())
         // Notify dashboard reminder to hide if visible
         window.dispatchEvent(new CustomEvent("timori:backup-done"))
