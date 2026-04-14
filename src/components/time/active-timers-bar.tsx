@@ -24,13 +24,40 @@ interface ActiveTimersBarProps {
   userId: string
 }
 
+type TimerField = "projekt" | "buchungsposten" | "aufgabe" | "beschreibung"
+type TimerFieldItem = { field: TimerField; enabled: boolean }
+
+const TIMER_STORAGE_KEY = "timerDisplayFields"
+const DEFAULT_TIMER_FIELDS: TimerFieldItem[] = [
+  { field: "projekt", enabled: true },
+  { field: "buchungsposten", enabled: true },
+  { field: "aufgabe", enabled: true },
+  { field: "beschreibung", enabled: true },
+]
+
+function loadTimerFields(): TimerFieldItem[] {
+  try {
+    const raw = localStorage.getItem(TIMER_STORAGE_KEY)
+    if (raw) return JSON.parse(raw) as TimerFieldItem[]
+  } catch { /* ignore */ }
+  return DEFAULT_TIMER_FIELDS
+}
+
 export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   const supabase = createClient()
   const [timers, setTimers] = useState<TimerWithRelations[]>([])
+  const [timerFields, setTimerFields] = useState<TimerFieldItem[]>(DEFAULT_TIMER_FIELDS)
   const [now, setNow] = useState(Date.now())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTimer, setEditingTimer] = useState<TimerWithRelations | null>(null)
   const [deletingTimerId, setDeletingTimerId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTimerFields(loadTimerFields())
+    const handler = () => setTimerFields(loadTimerFields())
+    window.addEventListener("timori:timer-display-changed", handler)
+    return () => window.removeEventListener("timori:timer-display-changed", handler)
+  }, [])
 
   // Tick every second
   useEffect(() => {
@@ -180,17 +207,24 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
               title="Timer bearbeiten"
             >
               <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <Badge variant="outline" className="text-xs px-1 py-0 h-4">
-                    {timer.code}
-                  </Badge>
-                  <span className="text-xs font-medium truncate max-w-[120px]">
-                    {timer.client?.name}
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground truncate max-w-[160px]">
-                  {[timer.project?.name, timer.task?.name, timer.description].filter(Boolean).join(" · ") || <span className="italic">Kein Projekt</span>}
+                <span className="text-xs font-medium truncate max-w-[240px]">
+                  {timer.client?.name}
                 </span>
+                {timerFields
+                  .filter(f => f.enabled)
+                  .map(f => {
+                    const value =
+                      f.field === "projekt" ? timer.project?.name :
+                      f.field === "buchungsposten" ? timer.booking_item_text :
+                      f.field === "aufgabe" ? timer.task?.name :
+                      timer.description || undefined
+                    return value ? (
+                      <span key={f.field} className="text-xs text-muted-foreground truncate max-w-[240px]">
+                        {value}
+                      </span>
+                    ) : null
+                  })
+                }
               </div>
               <span
                 className={`font-mono text-sm font-semibold tabular-nums ${isPaused ? "text-muted-foreground" : "text-foreground"}`}

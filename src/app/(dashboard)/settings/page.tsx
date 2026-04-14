@@ -30,6 +30,33 @@ function buildFieldItems(active: TaetigkeitField[]): FieldItem[] {
   ]
 }
 
+type TimerField = "projekt" | "buchungsposten" | "aufgabe" | "beschreibung"
+type TimerFieldItem = { field: TimerField; enabled: boolean }
+
+const TIMER_ALL_FIELDS: TimerField[] = ["projekt", "buchungsposten", "aufgabe", "beschreibung"]
+const TIMER_FIELD_LABELS: Record<TimerField, string> = {
+  projekt: "Projekt",
+  buchungsposten: "Buchungsposten",
+  aufgabe: "Aufgabe",
+  beschreibung: "Beschreibung",
+}
+const TIMER_STORAGE_KEY = "timerDisplayFields"
+
+function loadTimerFieldItems(): TimerFieldItem[] {
+  try {
+    const raw = localStorage.getItem(TIMER_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as TimerFieldItem[]
+      const known = new Set(TIMER_ALL_FIELDS)
+      const valid = parsed.filter(i => known.has(i.field))
+      const present = new Set(valid.map(i => i.field))
+      const missing = TIMER_ALL_FIELDS.filter(f => !present.has(f)).map(f => ({ field: f, enabled: false }))
+      return [...valid, ...missing]
+    }
+  } catch { /* ignore */ }
+  return TIMER_ALL_FIELDS.map(f => ({ field: f, enabled: true }))
+}
+
 const STATES: { value: string; label: string }[] = [
   { value: "DE-BW", label: "Baden-Württemberg" },
   { value: "DE-BY", label: "Bayern" },
@@ -58,6 +85,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false)
   const [fieldItems, setFieldItems] = useState<FieldItem[]>(buildFieldItems(DEFAULT_TAETIGKEIT_FIELDS))
   const [savingConfig, setSavingConfig] = useState(false)
+  const [timerFieldItems, setTimerFieldItems] = useState<TimerFieldItem[]>(TIMER_ALL_FIELDS.map(f => ({ field: f, enabled: true })))
   const [form, setForm] = useState({
     name: "", personal_nr: "", working_hours_per_day: "8",
     vacation_quota: "30", federal_state: "DE-NW", hourly_rate: "",
@@ -76,6 +104,7 @@ export default function SettingsPage() {
     setBackupSchedule(schedule)
     setLastBackupAt(last)
     setBackupFolderName(folder)
+    setTimerFieldItems(loadTimerFieldItems())
     if (isBackupDue(schedule, last)) {
       triggerExport()
     }
@@ -270,6 +299,29 @@ export default function SettingsPage() {
     setFieldItems(items)
   }
 
+  function moveTimerUp(i: number) {
+    if (i === 0) return
+    const items = [...timerFieldItems]
+    ;[items[i - 1], items[i]] = [items[i], items[i - 1]]
+    setTimerFieldItems(items)
+  }
+  function moveTimerDown(i: number) {
+    if (i === timerFieldItems.length - 1) return
+    const items = [...timerFieldItems]
+    ;[items[i + 1], items[i]] = [items[i], items[i + 1]]
+    setTimerFieldItems(items)
+  }
+  function toggleTimerField(i: number) {
+    const items = [...timerFieldItems]
+    items[i] = { ...items[i], enabled: !items[i].enabled }
+    setTimerFieldItems(items)
+  }
+  function saveTimerConfig() {
+    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timerFieldItems))
+    window.dispatchEvent(new CustomEvent("timori:timer-display-changed"))
+    toast.success("Timer-Anzeige gespeichert")
+  }
+
   async function handleSaveConfig() {
     if (!profile) return
     setSavingConfig(true)
@@ -433,6 +485,45 @@ export default function SettingsPage() {
           <div className="flex justify-end">
             <Button type="button" size="sm" onClick={handleSaveConfig} disabled={savingConfig}>
               {savingConfig ? tCommon("saving") : tCommon("save")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Aktive Timer — Anzeige</CardTitle>
+          <p className="text-xs text-muted-foreground">Wähle welche Felder beim laufenden Timer angezeigt werden und in welcher Reihenfolge.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="rounded-md border divide-y">
+            {timerFieldItems.map((item, i) => (
+              <div key={item.field} className="flex items-center gap-3 px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={item.enabled}
+                  onChange={() => toggleTimerField(i)}
+                  className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+                />
+                <span className={`flex-1 text-sm ${item.enabled ? "" : "text-muted-foreground"}`}>
+                  {TIMER_FIELD_LABELS[item.field]}
+                </span>
+                <div className="flex gap-1">
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6"
+                    onClick={() => moveTimerUp(i)} disabled={i === 0}>
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6"
+                    onClick={() => moveTimerDown(i)} disabled={i === timerFieldItems.length - 1}>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <Button type="button" size="sm" onClick={saveTimerConfig}>
+              {tCommon("save")}
             </Button>
           </div>
         </CardContent>
