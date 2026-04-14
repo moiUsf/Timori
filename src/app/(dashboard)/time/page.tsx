@@ -16,6 +16,7 @@ import { formatHours, formatDate, hoursFromTimeRange, cn } from "@/lib/utils"
 import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter"
 
 type TaskWithBooking = Task & { default_booking_item?: { id: string; name: string } | null }
 type EntryWithRelations = TimeEntry & { client: Client; project: Project; task?: Task }
@@ -84,9 +85,9 @@ export default function TimePage() {
   type GroupBy = "day" | "client" | "booking_item" | "task"
   const [groupBy, setGroupBy] = useState<GroupBy>("day")
   const [sortAsc, setSortAsc] = useState(true)
-  const [filterClient, setFilterClient] = useState("")
-  const [filterBookingItem, setFilterBookingItem] = useState("")
-  const [filterTask, setFilterTask] = useState("")
+  const [filterClient, setFilterClient] = useState<string[]>([])
+  const [filterBookingItem, setFilterBookingItem] = useState<string[]>([])
+  const [filterTask, setFilterTask] = useState<string[]>([])
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
@@ -368,17 +369,18 @@ export default function TimePage() {
     loadEntries()
   }
 
-  // Filter entries (AND-logic)
+  // Filter entries (AND-logic, multi-select)
   const displayEntries = entries.filter(e => {
-    if (filterClient && e.client_id !== filterClient) return false
-    if (filterBookingItem && e.booking_item_text !== filterBookingItem) return false
-    if (filterTask && e.task_id !== filterTask) return false
+    if (filterClient.length > 0 && !filterClient.includes(e.client_id)) return false
+    if (filterBookingItem.length > 0 && !filterBookingItem.includes(e.booking_item_text ?? "")) return false
+    if (filterTask.length > 0 && (!e.task_id || !filterTask.includes(e.task_id))) return false
     return true
   })
 
-  // Dropdown options derived from ALL entries of the month (not filtered)
-  const allBookingItems = [...new Set(entries.map(e => e.booking_item_text).filter(Boolean))] as string[]
-  const allFilterTasks = entries.reduce<{ id: string; name: string }[]>((acc, e) => {
+  // Dropdown options — restricted by selected client(s) if any active
+  const filterBase = filterClient.length > 0 ? entries.filter(e => filterClient.includes(e.client_id)) : entries
+  const allBookingItems = [...new Set(filterBase.map(e => e.booking_item_text?.trim()).filter(Boolean))] as string[]
+  const allFilterTasks = filterBase.reduce<{ id: string; name: string }[]>((acc, e) => {
     if (e.task_id && e.task && !acc.find(t => t.id === e.task_id))
       acc.push({ id: e.task_id, name: e.task.name })
     return acc
@@ -770,49 +772,58 @@ export default function TimePage() {
           ) : (
             <>
               {/* Filter bar */}
-              <div className="px-4 py-2 border-b flex flex-wrap gap-2 items-center md:px-6">
-                <Select value={filterClient || "__all__"} onValueChange={v => setFilterClient(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="h-8 w-full sm:w-36 text-xs"><SelectValue placeholder="Kunde…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Alle</SelectItem>
-                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={filterBookingItem || "__all__"} onValueChange={v => setFilterBookingItem(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="h-8 w-full sm:w-44 text-xs"><SelectValue placeholder="Buchungsposten…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Alle</SelectItem>
-                    {allBookingItems.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={filterTask || "__all__"} onValueChange={v => setFilterTask(v === "__all__" ? "" : v)}>
-                  <SelectTrigger className="h-8 w-full sm:w-36 text-xs"><SelectValue placeholder="Aufgabe…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Alle</SelectItem>
-                    {allFilterTasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {filterClient && (
-                  <Badge variant="secondary" className="gap-1 text-xs">
-                    {clients.find(c => c.id === filterClient)?.name}
-                    <button onClick={() => setFilterClient("")} className="ml-1 hover:text-destructive">×</button>
+              <div className="px-4 py-2 border-b flex flex-wrap gap-3 items-end md:px-6">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground font-medium">Kunde</span>
+                  <MultiSelectFilter
+                    label="Kunde"
+                    options={clients.map(c => ({ value: c.id, label: c.name }))}
+                    selected={filterClient}
+                    onChange={v => { setFilterClient(v); setFilterBookingItem([]); setFilterTask([]) }}
+                    className="w-36"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground font-medium">Buchungsposten</span>
+                  <MultiSelectFilter
+                    label="Buchungsposten"
+                    options={allBookingItems.map(b => ({ value: b, label: b }))}
+                    selected={filterBookingItem}
+                    onChange={setFilterBookingItem}
+                    className="w-44"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground font-medium">Aufgabe</span>
+                  <MultiSelectFilter
+                    label="Aufgabe"
+                    options={allFilterTasks.map(t => ({ value: t.id, label: t.name }))}
+                    selected={filterTask}
+                    onChange={setFilterTask}
+                    className="w-36"
+                  />
+                </div>
+                {filterClient.length > 0 && filterClient.map(id => (
+                  <Badge key={id} variant="secondary" className="gap-1 text-xs">
+                    {clients.find(c => c.id === id)?.name}
+                    <button onClick={() => setFilterClient(prev => { const next = prev.filter(v => v !== id); setFilterBookingItem([]); setFilterTask([]); return next })} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
-                )}
-                {filterBookingItem && (
-                  <Badge variant="secondary" className="gap-1 text-xs">
-                    {filterBookingItem}
-                    <button onClick={() => setFilterBookingItem("")} className="ml-1 hover:text-destructive">×</button>
+                ))}
+                {filterBookingItem.length > 0 && filterBookingItem.map(b => (
+                  <Badge key={b} variant="secondary" className="gap-1 text-xs">
+                    {b}
+                    <button onClick={() => setFilterBookingItem(prev => prev.filter(v => v !== b))} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
-                )}
-                {filterTask && (
-                  <Badge variant="secondary" className="gap-1 text-xs">
-                    {allFilterTasks.find(t => t.id === filterTask)?.name}
-                    <button onClick={() => setFilterTask("")} className="ml-1 hover:text-destructive">×</button>
+                ))}
+                {filterTask.length > 0 && filterTask.map(id => (
+                  <Badge key={id} variant="secondary" className="gap-1 text-xs">
+                    {allFilterTasks.find(t => t.id === id)?.name}
+                    <button onClick={() => setFilterTask(prev => prev.filter(v => v !== id))} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
-                )}
-                {(filterClient || filterBookingItem || filterTask) && (
+                ))}
+                {(filterClient.length > 0 || filterBookingItem.length > 0 || filterTask.length > 0) && (
                   <Button variant="ghost" size="sm" className="h-11 text-sm md:h-7 md:text-xs"
-                    onClick={() => { setFilterClient(""); setFilterBookingItem(""); setFilterTask("") }}>
+                    onClick={() => { setFilterClient([]); setFilterBookingItem([]); setFilterTask([]) }}>
                     Filter zurücksetzen
                   </Button>
                 )}
