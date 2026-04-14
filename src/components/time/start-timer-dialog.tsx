@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
 import { Play, Plus } from "lucide-react"
@@ -216,13 +216,12 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
               <SelectContent>
                 <SelectItem value="_none">— Kein Projekt —</SelectItem>
                 {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                <div className="border-t mt-1 pt-1">
-                  <SelectItem value="_create_project" className="text-primary font-medium">
-                    <span className="flex items-center gap-1.5">
-                      <Plus className="h-3.5 w-3.5" />Neues Projekt erstellen
-                    </span>
-                  </SelectItem>
-                </div>
+                <SelectSeparator />
+                <SelectItem value="_create_project" className="text-primary font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <Plus className="h-3.5 w-3.5" />Neues Projekt erstellen
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
             {creatingProject && (
@@ -268,13 +267,12 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
               <SelectContent>
                 <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
                 {tasks.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                <div className="border-t mt-1 pt-1">
-                  <SelectItem value="_create_task" className="text-primary font-medium">
-                    <span className="flex items-center gap-1.5">
-                      <Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen
-                    </span>
-                  </SelectItem>
-                </div>
+                <SelectSeparator />
+                <SelectItem value="_create_task" className="text-primary font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
             {creatingTask && (

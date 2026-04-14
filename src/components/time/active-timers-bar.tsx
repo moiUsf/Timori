@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Play, Pause, Square, Plus, Pencil } from "lucide-react"
+import { Play, Pause, Square, Plus, Pencil, Trash2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import type { ActiveTimer, Client, Project } from "@/types/database"
 import { formatDuration } from "@/lib/utils"
@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { StartTimerDialog } from "./start-timer-dialog"
 import { EditTimerDialog } from "./edit-timer-dialog"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
 
 interface TimerWithRelations extends ActiveTimer {
   client: Client
@@ -22,10 +26,12 @@ interface ActiveTimersBarProps {
 
 export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   const supabase = createClient()
+  const router = useRouter()
   const [timers, setTimers] = useState<TimerWithRelations[]>([])
   const [now, setNow] = useState(Date.now())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTimer, setEditingTimer] = useState<TimerWithRelations | null>(null)
+  const [deletingTimerId, setDeletingTimerId] = useState<string | null>(null)
 
   // Tick every second
   useEffect(() => {
@@ -118,6 +124,14 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
     loadTimers()
   }
 
+  async function handleDelete() {
+    if (!deletingTimerId) return
+    await supabase.from("active_timers").delete().eq("id", deletingTimerId)
+    toast.success("Timer gelöscht")
+    setDeletingTimerId(null)
+    loadTimers()
+  }
+
   if (timers.length === 0 && !dialogOpen) {
     return (
       <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3">
@@ -129,7 +143,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
           userId={userId}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          onCreated={loadTimers}
+          onCreated={() => { loadTimers(); router.refresh() }}
         />
         {editingTimer && (
           <EditTimerDialog
@@ -200,6 +214,15 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
               >
                 <Square className="h-4 w-4" />
               </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                onClick={() => setDeletingTimerId(timer.id)}
+                title="Timer löschen"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         )
@@ -212,7 +235,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
         userId={userId}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onCreated={loadTimers}
+        onCreated={() => { loadTimers(); router.refresh() }}
       />
       {editingTimer && (
         <EditTimerDialog
@@ -222,6 +245,20 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
           onSaved={loadTimers}
         />
       )}
+      <Dialog open={!!deletingTimerId} onOpenChange={open => { if (!open) setDeletingTimerId(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Timer löschen?</DialogTitle>
+            <DialogDescription>
+              Der Timer wird verworfen. Es wird kein Zeiteintrag erstellt.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingTimerId(null)}>Abbrechen</Button>
+            <Button variant="destructive" onClick={handleDelete}>Löschen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
