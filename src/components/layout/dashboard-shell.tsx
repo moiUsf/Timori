@@ -5,6 +5,7 @@ import { Menu, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Sidebar } from "./sidebar"
 import { ActiveTimersBar } from "@/components/time/active-timers-bar"
+import { TimerDisplayProvider } from "@/lib/timer-display-context"
 import type { UserProfile } from "@/types/database"
 import type { User } from "@supabase/supabase-js"
 
@@ -20,6 +21,7 @@ export function DashboardShell({
   const [open, setOpen] = useState(false)
 
   return (
+    <TimerDisplayProvider>
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Mobile backdrop */}
       {open && (
@@ -61,5 +63,6 @@ export function DashboardShell({
         <ActiveTimersBar userId={user.id} />
       </div>
     </div>
+    </TimerDisplayProvider>
   )
 }
