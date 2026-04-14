@@ -5,11 +5,12 @@ import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Clock, Umbrella, TrendingUp, CalendarDays, Pencil, Check } from "lucide-react"
+import { Clock, Umbrella, TrendingUp, CalendarDays, Pencil, Check, Download, X } from "lucide-react"
 import { formatHours, formatMonthYear } from "@/lib/utils"
 import { getHolidays } from "@/lib/holidays"
 import type { GermanState } from "@/lib/holidays"
 import type { Client, UserProfile } from "@/types/database"
+import { isBackupDue, downloadBlob } from "@/lib/backup-idb"
 
 type ClientWithBooking = Client & { monthly_booked_days: number }
 
@@ -51,6 +52,8 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState("")
   const [editingClientId, setEditingClientId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState("")
+  const [backupReminder, setBackupReminder] = useState(false)
+  const [backupExporting, setBackupExporting] = useState(false)
 
   const loadData = useCallback(async (uid: string) => {
     const [profileRes, entriesRes, vacationRes, activeRes, overtimeRes, clientsRes] = await Promise.all([
@@ -114,6 +117,10 @@ export default function DashboardPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) { setUserId(user.id); loadData(user.id) }
     })
+    const schedule = (localStorage.getItem("backupSchedule") ?? "never") as "never"|"daily"|"weekly"|"monthly"
+    const last = localStorage.getItem("lastBackupAt")
+    const time = localStorage.getItem("backupTime") ?? "02:00"
+    if (isBackupDue(schedule, last, time)) setBackupReminder(true)
   }, [supabase, loadData])
 
   useEffect(() => {
@@ -143,6 +150,27 @@ export default function DashboardPage() {
     if (userId) loadData(userId)
   }
 
+  async function handleBackupNow() {
+    setBackupExporting(true)
+    try {
+      const res = await fetch("/api/backup/export")
+      if (!res.ok) throw new Error()
+      const json = await res.json()
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
+      const now2 = new Date()
+      const pad = (n: number) => String(n).padStart(2, "0")
+      const ts = `${now2.getFullYear()}-${pad(now2.getMonth()+1)}-${pad(now2.getDate())}_${pad(now2.getHours())}-${pad(now2.getMinutes())}`
+      downloadBlob(blob, `timori-backup-${ts}.json`)
+      const iso = new Date().toISOString()
+      localStorage.setItem("lastBackupAt", iso)
+      setBackupReminder(false)
+    } catch {
+      // keep reminder visible on error
+    } finally {
+      setBackupExporting(false)
+    }
+  }
+
   const workingDaysInMonth = countWorkingDays(year, month)
   const targetHours = workingDaysInMonth * (profile?.working_hours_per_day ?? 8)
   const overtimeDiff = totalNetHours - targetHours
@@ -159,6 +187,24 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground">{formatMonthYear(now)}</p>
       </div>
+
+      {/* Backup reminder */}
+      {backupReminder && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+          <Download className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Dein automatisches Backup wurde verpasst. Möchtest du jetzt ein Backup erstellen?</span>
+          <button
+            onClick={handleBackupNow}
+            disabled={backupExporting}
+            className="shrink-0 rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+          >
+            {backupExporting ? "Wird erstellt…" : "Jetzt erstellen"}
+          </button>
+          <button onClick={() => setBackupReminder(false)} className="shrink-0 text-amber-600 hover:text-amber-900 dark:hover:text-amber-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:grid-cols-4">

@@ -48,10 +48,19 @@ export function downloadBlob(blob: Blob, filename: string) {
 
 export function isBackupDue(
   schedule: "never" | "daily" | "weekly" | "monthly",
-  lastBackupAt: string | null
+  lastBackupAt: string | null,
+  backupTime = "02:00"
 ): boolean {
   if (schedule === "never") return false
+
+  // Check whether today's scheduled time has already passed
+  const [bh, bm] = backupTime.split(":").map(Number)
+  const now = new Date()
+  const scheduledToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), bh, bm, 0, 0)
+  if (now < scheduledToday) return false  // not yet time today
+
   if (!lastBackupAt) return true
+
   const diffDays = (Date.now() - new Date(lastBackupAt).getTime()) / 86_400_000
   if (schedule === "daily") return diffDays >= 1
   if (schedule === "weekly") return diffDays >= 7

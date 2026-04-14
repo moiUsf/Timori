@@ -12,8 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { toast } from "sonner"
-import { Sun, Moon, Monitor, ChevronUp, ChevronDown, FolderOpen, Download, Upload } from "lucide-react"
-import { saveHandleToIDB, loadHandleFromIDB, downloadBlob, isBackupDue } from "@/lib/backup-idb"
+import { Sun, Moon, Monitor, ChevronUp, ChevronDown, Download, Upload } from "lucide-react"
+import { downloadBlob, isBackupDue } from "@/lib/backup-idb"
 import type { TaetigkeitField } from "@/types/database"
 import { DEFAULT_TAETIGKEIT_FIELDS } from "@/lib/reports/taetigkeitsbericht-data"
 import { useTimerDisplay } from "@/lib/timer-display-context"
@@ -93,8 +93,8 @@ export default function SettingsPage() {
     vacation_quota: "30", federal_state: "DE-NW", hourly_rate: "",
   })
   const [backupSchedule, setBackupSchedule] = useState<"never"|"daily"|"weekly"|"monthly">("never")
+  const [backupTime, setBackupTime] = useState("02:00")
   const [lastBackupAt, setLastBackupAt] = useState<string|null>(null)
-  const [backupFolderName, setBackupFolderName] = useState<string|null>(null)
   const [exportLoading, setExportLoading] = useState(false)
   const [importLoading, setImportLoading] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
@@ -102,36 +102,16 @@ export default function SettingsPage() {
   useEffect(() => {
     const schedule = (localStorage.getItem("backupSchedule") ?? "never") as typeof backupSchedule
     const last = localStorage.getItem("lastBackupAt")
-    const folder = localStorage.getItem("backupFolderName")
+    const time = localStorage.getItem("backupTime") ?? "02:00"
     setBackupSchedule(schedule)
+    setBackupTime(time)
     setLastBackupAt(last)
-    setBackupFolderName(folder)
     setTimerFieldItems(loadTimerFieldItems()) // also synced from context via ctxTimerFields below
-    if (isBackupDue(schedule, last)) {
+    if (isBackupDue(schedule, last, time)) {
       triggerExport()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  async function handleSelectFolder() {
-    if (!("showDirectoryPicker" in window)) {
-      toast.info("Ordner-Auswahl wird von diesem Browser nicht unterstützt — Backup wird in den Download-Ordner gespeichert")
-      return
-    }
-    try {
-      const handle = await (window as Window & typeof globalThis & { showDirectoryPicker: (opts?: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: "readwrite" })
-      await saveHandleToIDB(handle)
-      const userPath = window.prompt(
-        `✓ Ordner „${handle.name}" wurde erfolgreich ausgewählt.\n\nOptional: Aus OS-Sicherheitsgründen kann der Browser den vollständigen Pfad nicht automatisch lesen. Du kannst ihn hier manuell eintragen, damit er angezeigt wird — oder einfach auf OK klicken bzw. Abbrechen, um nur den Ordnernamen zu behalten.`,
-        handle.name
-      )
-      const displayPath = userPath !== null ? userPath : handle.name
-      setBackupFolderName(displayPath)
-      localStorage.setItem("backupFolderName", displayPath)
-    } catch {
-      // user cancelled
-    }
-  }
 
   async function triggerExport() {
     setExportLoading(true)
@@ -143,30 +123,7 @@ export default function SettingsPage() {
       const now2 = new Date()
       const pad = (n: number) => String(n).padStart(2, "0")
       const ts = `${now2.getFullYear()}-${pad(now2.getMonth()+1)}-${pad(now2.getDate())}_${pad(now2.getHours())}-${pad(now2.getMinutes())}-${pad(now2.getSeconds())}`
-      const filename = `timori-backup-${ts}.json`
-
-      const handle = await loadHandleFromIDB()
-      if (handle) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const h = handle as any
-          const permission = await h.queryPermission?.({ mode: "readwrite" }) ?? "granted"
-          const perm = permission === "granted" ? "granted" : await h.requestPermission?.({ mode: "readwrite" }) ?? "denied"
-          if (perm === "granted") {
-            const fileHandle = await handle.getFileHandle(filename, { create: true })
-            const writable = await fileHandle.createWritable()
-            await writable.write(blob)
-            await writable.close()
-          } else {
-            downloadBlob(blob, filename)
-          }
-        } catch {
-          downloadBlob(blob, filename)
-        }
-      } else {
-        downloadBlob(blob, filename)
-      }
-
+      downloadBlob(blob, `timori-backup-${ts}.json`)
       const now = new Date().toISOString()
       setLastBackupAt(now)
       localStorage.setItem("lastBackupAt", now)
@@ -179,29 +136,7 @@ export default function SettingsPage() {
   }
 
   async function handleImportPicker() {
-    if ("showOpenFilePicker" in window) {
-      try {
-        const pickerOpts = {
-          types: [{ description: "Backup", accept: { "application/json": [".json"] } }],
-          multiple: false,
-        } as Record<string, unknown>
-
-        // Use stored backup folder as startIn, fallback to downloads
-        const dirHandle = await loadHandleFromIDB()
-        if (dirHandle) pickerOpts.startIn = dirHandle
-        else pickerOpts.startIn = "downloads"
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const [fileHandle] = await (window as any).showOpenFilePicker(pickerOpts)
-        const file = await fileHandle.getFile()
-        await handleImportFile(file)
-      } catch (e: unknown) {
-        // User cancelled — no error
-        if (e instanceof Error && e.name !== "AbortError") toast.error("Datei konnte nicht geöffnet werden")
-      }
-    } else {
-      importFileRef.current?.click()
-    }
+    importFileRef.current?.click()
   }
 
   async function handleImportFile(file: File) {
@@ -229,6 +164,11 @@ export default function SettingsPage() {
   function handleScheduleChange(val: typeof backupSchedule) {
     setBackupSchedule(val)
     localStorage.setItem("backupSchedule", val)
+  }
+
+  function handleBackupTimeChange(val: string) {
+    setBackupTime(val)
+    localStorage.setItem("backupTime", val)
   }
 
   useEffect(() => {
@@ -535,25 +475,8 @@ export default function SettingsPage() {
           <CardTitle className="text-base">Backup</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Folder selection */}
-          <div className="space-y-2">
-            <Label>Backup-Ordner</Label>
-            <div className="flex gap-2">
-              <Input
-                readOnly
-                value={backupFolderName ?? ""}
-                placeholder="Ordner wählen…"
-                className="flex-1 font-mono text-sm"
-              />
-              <Button type="button" variant="outline" onClick={handleSelectFolder} className="gap-2 shrink-0">
-                <FolderOpen className="h-4 w-4" />
-                Ordner wählen
-              </Button>
-            </div>
-          </div>
-
-          {/* Schedule + last backup */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Schedule + time + last backup */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Automatisches Backup</Label>
               <Select value={backupSchedule} onValueChange={handleScheduleChange}>
@@ -567,6 +490,16 @@ export default function SettingsPage() {
                   <SelectItem value="monthly">Monatlich</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Uhrzeit</Label>
+              <input
+                type="time"
+                value={backupTime}
+                onChange={e => handleBackupTimeChange(e.target.value)}
+                disabled={backupSchedule === "never"}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+              />
             </div>
             <div className="space-y-2">
               <Label>Letztes Backup</Label>
