@@ -56,7 +56,7 @@ export function DashboardShell({
           <span className="text-base font-bold">Timori</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-6 md:pb-24">
           {children}
         </main>
 
