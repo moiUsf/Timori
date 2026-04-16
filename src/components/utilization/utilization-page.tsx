@@ -130,7 +130,11 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
 
   async function saveTiles(newTiles: UtilizationTile[]) {
     setTiles(newTiles)
-    await supabase.from("users_profile").update({ utilization_tiles: newTiles }).eq("user_id", userId)
+    const { error } = await supabase
+      .from("users_profile")
+      .update({ utilization_tiles: newTiles })
+      .eq("user_id", userId)
+    if (error) toast.error(error.message)
   }
 
   async function handleAdd(tile: UtilizationTile) {

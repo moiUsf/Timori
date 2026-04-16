@@ -17,16 +17,30 @@ export default function AuslastungPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       setUserId(user.id)
-      const { data } = await supabase
+
+      // Load tiles + hours (migration 005 required)
+      const { data: profile } = await supabase
         .from("users_profile")
-        .select("utilization_tiles, working_hours_per_day, utilization_config")
+        .select("utilization_tiles, working_hours_per_day")
         .eq("user_id", user.id)
         .single()
-      if (data) {
-        setTiles((data.utilization_tiles as UtilizationTile[]) ?? [])
-        setHoursPerDay(data.working_hours_per_day ?? 8)
-        setUtilConfig((data.utilization_config as UtilizationConfig) ?? {})
+
+      if (profile) {
+        setTiles((profile.utilization_tiles as UtilizationTile[]) ?? [])
+        setHoursPerDay(profile.working_hours_per_day ?? 8)
       }
+
+      // Load config separately — migration 006 may not be applied yet
+      const { data: configRow } = await supabase
+        .from("users_profile")
+        .select("utilization_config")
+        .eq("user_id", user.id)
+        .single()
+
+      if (configRow?.utilization_config) {
+        setUtilConfig(configRow.utilization_config as UtilizationConfig)
+      }
+
       setReady(true)
     })
   }, [])
