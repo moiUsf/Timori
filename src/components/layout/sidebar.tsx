@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import {
   Clock, LayoutDashboard, CalendarDays, TrendingUp, Receipt,
-  Users, FileText, Settings, LogOut, Umbrella
+  Users, FileText, Settings, LogOut, Umbrella, BarChart2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -32,6 +32,7 @@ export function Sidebar({ user, profile, onClose }: SidebarProps) {
     { href: "/holidays", label: t("holidays"), icon: CalendarDays },
     { href: "/expenses", label: t("expenses"), icon: Receipt },
     { href: "/clients", label: t("clients"), icon: Users },
+    { href: "/auslastung", label: t("auslastung"), icon: BarChart2 },
     { href: "/reports", label: t("reports"), icon: FileText },
   ]
 

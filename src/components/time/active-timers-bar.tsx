@@ -120,7 +120,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
       project_id: timer.project_id,
       code: timer.code,
       description: timer.description,
-      remote: false,
+      remote: timer.client?.default_remote ?? false,
       gross_h: Math.round(grossHours * 100) / 100,
       net_h: Math.round(netHours * 100) / 100,
       task_id: timer.task_id ?? null,

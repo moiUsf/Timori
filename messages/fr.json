@@ -33,6 +33,7 @@
     "holidays": "Jours fériés",
     "expenses": "Notes de frais",
     "clients": "Clients & Projets",
+    "auslastung": "Utilisation",
     "reports": "Rapports & Export",
     "settings": "Paramètres",
     "logout": "Déconnexion"
@@ -259,5 +260,34 @@
     "filterNoClient": "Aucun client",
     "saved": "Enregistré",
     "deleted": "Supprimé"
+  },
+  "auslastung": {
+    "title": "Vue d'utilisation",
+    "addTile": "Ajouter une tuile",
+    "noTiles": "Aucune tuile. Cliquez sur \"Ajouter une tuile\" pour commencer.",
+    "budget": "Budget",
+    "consumed": "Consommé",
+    "periodTotal": "Total",
+    "periodMonthly": "Mensuel",
+    "unitH": "h",
+    "unitMT": "JH",
+    "typeProject": "Projet",
+    "typeTask": "Tâche",
+    "typeBookingItem": "Poste de réservation",
+    "remaining": "{h} restant",
+    "overdrawn": "{h} dépassé",
+    "hoursOf": "{consumed} / {budget}",
+    "dialogTitle": "Ajouter une tuile",
+    "selectType": "Type",
+    "selectEntity": "Sélectionner...",
+    "budgetLabel": "Budget",
+    "periodLabel": "Période",
+    "saved": "Tuile enregistrée",
+    "deleted": "Tuile supprimée",
+    "carryOver": "Report",
+    "noCarryOver": "Réinitialiser par mois",
+    "defaults": "Valeurs par défaut",
+    "defaultsDesc": "Valeurs pré-remplies lors de l'ajout de nouvelles tuiles",
+    "defaultsSaved": "Valeurs par défaut enregistrées"
   }
 }

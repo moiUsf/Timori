@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatHours, formatDate, hoursFromTimeRange, cn } from "@/lib/utils"
@@ -79,6 +79,8 @@ export default function TimePage() {
   const [overlapConflicts, setOverlapConflicts] = useState<EntryWithRelations[]>([])
   const [showOverlapDialog, setShowOverlapDialog] = useState(false)
   const [reportDialogOpen, setReportDialogOpen] = useState(false)
+  const [creatingBookingItem, setCreatingBookingItem] = useState(false)
+  const [newBookingItemName, setNewBookingItemName] = useState("")
   const [creatingProject, setCreatingProject] = useState(false)
   const [newProjectName, setNewProjectName] = useState("")
   const [creatingTask, setCreatingTask] = useState(false)
@@ -186,8 +188,10 @@ export default function TimePage() {
     setBookingItemAutoSet(false)
     setProjectSearch("")
     setTaskSearch("")
+    setCreatingBookingItem(false)
     setCreatingProject(false)
     setCreatingTask(false)
+    setNewBookingItemName("")
     setNewProjectName("")
     setNewTaskName("")
     setShowForm(true)
@@ -212,8 +216,10 @@ export default function TimePage() {
     setBookingItemAutoSet(false)
     setProjectSearch("")
     setTaskSearch("")
+    setCreatingBookingItem(false)
     setCreatingProject(false)
     setCreatingTask(false)
+    setNewBookingItemName("")
     setNewProjectName("")
     setNewTaskName("")
     setShowForm(true)
@@ -238,8 +244,10 @@ export default function TimePage() {
     setBookingItemAutoSet(false)
     setProjectSearch("")
     setTaskSearch("")
+    setCreatingBookingItem(false)
     setCreatingProject(false)
     setCreatingTask(false)
+    setNewBookingItemName("")
     setNewProjectName("")
     setNewTaskName("")
     setShowForm(true)
@@ -256,6 +264,23 @@ export default function TimePage() {
       code: entry.code,
     })
     setTimerDialogOpen(true)
+  }
+
+  async function handleCreateBookingItem() {
+    if (!newBookingItemName.trim() || !userId) return
+    const { data, error } = await supabase.from("booking_items").insert({
+      user_id: userId,
+      client_id: form.client_id || null,
+      name: newBookingItemName.trim(),
+      active: true,
+    }).select("id, name").single()
+    if (error) { toast.error("Fehler: " + error.message); return }
+    setBookingItems(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setForm(f => ({ ...f, booking_item_text: data.name }))
+    setBookingItemAutoSet(false)
+    setCreatingBookingItem(false)
+    setNewBookingItemName("")
+    toast.success("Buchungsposten erstellt")
   }
 
   async function handleCreateProject() {
@@ -522,28 +547,52 @@ export default function TimePage() {
                   {bookingItemAutoSet && (
                     <p className="text-xs text-amber-600 font-medium">{t("bookingItemAutoSet")}</p>
                   )}
-                  {bookingItems.length > 0 ? (
-                    <Select value={form.booking_item_text || "_manual"}
-                      onValueChange={(v) => {
-                        setForm({ ...form, booking_item_text: v === "_manual" ? "" : v })
-                        setBookingItemAutoSet(false)
-                      }}>
-                      <SelectTrigger className={cn("h-12 text-base md:h-9 md:text-sm", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}>
-                        <SelectValue placeholder={t("bookingItemPlaceholder")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_manual">{t("bookingItemManual")}</SelectItem>
-                        {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  ) : null}
-                  {(bookingItems.length === 0 || !bookingItems.find(b => b.name === form.booking_item_text)) && (
-                    <Input
-                      placeholder="z.B. 4800061526 - Support PI/PO"
-                      value={form.booking_item_text}
-                      onChange={(e) => { setForm({ ...form, booking_item_text: e.target.value }); setBookingItemAutoSet(false) }}
-                      className={cn("h-12 text-base md:h-9 md:text-sm", bookingItems.length > 0 ? "mt-1" : "", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}
-                    />
+                  <Select key={`booking-${bookingItems.length}`} value={form.booking_item_text}
+                    onValueChange={(v) => {
+                      if (v === "_create_booking_item") {
+                        setCreatingBookingItem(true)
+                        setNewBookingItemName("")
+                        return
+                      }
+                      setForm({ ...form, booking_item_text: v })
+                      setBookingItemAutoSet(false)
+                      setCreatingBookingItem(false)
+                    }}>
+                    <SelectTrigger className={cn("h-12 text-base md:h-9 md:text-sm", bookingItemAutoSet ? "border-amber-400 ring-1 ring-amber-400" : "")}>
+                      <SelectValue placeholder={t("bookingItemPlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_create_booking_item" className="text-primary font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Plus className="h-3.5 w-3.5" />Neuen Buchungsposten erstellen
+                        </span>
+                      </SelectItem>
+                      {bookingItems.length > 0 && <SelectSeparator />}
+                      {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {creatingBookingItem && (
+                    <div className="flex gap-1.5 mt-1">
+                      <Input
+                        autoFocus
+                        placeholder="Buchungspostenname..."
+                        value={newBookingItemName}
+                        onChange={e => setNewBookingItemName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") { e.preventDefault(); handleCreateBookingItem() }
+                          if (e.key === "Escape") setCreatingBookingItem(false)
+                        }}
+                        className="h-12 text-base md:h-9 md:text-sm"
+                      />
+                      <Button type="button" size="sm" onClick={handleCreateBookingItem}
+                        disabled={!newBookingItemName.trim()} className="shrink-0 h-12 md:h-9">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost"
+                        onClick={() => setCreatingBookingItem(false)} className="shrink-0 h-12 md:h-9 text-muted-foreground">
+                        ✕
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -578,18 +627,17 @@ export default function TimePage() {
                           className="h-7 text-sm"
                         />
                       </div>
+                      <SelectItem value="_create_project" className="text-primary font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Plus className="h-3.5 w-3.5" />Neues Projekt erstellen
+                        </span>
+                      </SelectItem>
+                      <div className="border-t my-1" />
                       <SelectItem value="_none">{t("noProject")}</SelectItem>
                       {filteredProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       {filteredProjects.length === 0 && projectSearch && (
                         <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
                       )}
-                      <div className="border-t mt-1 pt-1">
-                        <SelectItem value="_create_project" className="text-primary font-medium">
-                          <span className="flex items-center gap-1.5">
-                            <Plus className="h-3.5 w-3.5" />Neues Projekt erstellen
-                          </span>
-                        </SelectItem>
-                      </div>
                     </SelectContent>
                   </Select>
                   {creatingProject && (
@@ -640,18 +688,17 @@ export default function TimePage() {
                           className="h-7 text-sm"
                         />
                       </div>
+                      <SelectItem value="_create_task" className="text-primary font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen
+                        </span>
+                      </SelectItem>
+                      <div className="border-t my-1" />
                       <SelectItem value="_none">{t("noTask")}</SelectItem>
                       {filteredTasks.map((task) => <SelectItem key={task.id} value={task.id}>{task.name}</SelectItem>)}
                       {filteredTasks.length === 0 && taskSearch && (
                         <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
                       )}
-                      <div className="border-t mt-1 pt-1">
-                        <SelectItem value="_create_task" className="text-primary font-medium">
-                          <span className="flex items-center gap-1.5">
-                            <Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen
-                          </span>
-                        </SelectItem>
-                      </div>
                     </SelectContent>
                   </Select>
                   {creatingTask && (

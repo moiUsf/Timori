@@ -46,6 +46,8 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
   const [bookingItemText, setBookingItemText] = useState("")
   const [startedAt, setStartedAt] = useState("")
   const [saving, setSaving] = useState(false)
+  const [creatingBookingItem, setCreatingBookingItem] = useState(false)
+  const [newBookingItemName, setNewBookingItemName] = useState("")
   const [creatingProject, setCreatingProject] = useState(false)
   const [newProjectName, setNewProjectName] = useState("")
   const [creatingTask, setCreatingTask] = useState(false)
@@ -102,6 +104,22 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
     }
     loadTasks()
   }, [open, projectId, timer.client_id, timer.user_id, supabase])
+
+  async function handleCreateBookingItem() {
+    if (!newBookingItemName.trim()) return
+    const { data, error } = await supabase.from("booking_items").insert({
+      user_id: timer.user_id,
+      client_id: timer.client_id || null,
+      name: newBookingItemName.trim(),
+      active: true,
+    }).select("id, name").single()
+    if (error) { toast.error("Fehler: " + error.message); return }
+    setBookingItems(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setBookingItemText(data.name)
+    setCreatingBookingItem(false)
+    setNewBookingItemName("")
+    toast.success("Buchungsposten erstellt")
+  }
 
   async function handleCreateProject() {
     if (!newProjectName.trim() || !timer.client_id) return
@@ -169,25 +187,51 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
           {/* Booking item */}
           <div className="space-y-2">
             <Label>Buchungsposten (optional)</Label>
-            {bookingItems.length > 0 ? (
-              <Select
-                value={bookingItemText || "_manual"}
-                onValueChange={v => setBookingItemText(v === "_manual" ? "" : v)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_manual">— Manuell eingeben —</SelectItem>
-                  {bookingItems.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            ) : null}
-            {(bookingItems.length === 0 || !bookingItems.find(b => b.name === bookingItemText)) && (
-              <Input
-                placeholder="z.B. 4800061526 - Support PI/PO"
-                value={bookingItemText}
-                onChange={e => setBookingItemText(e.target.value)}
-                className={bookingItems.length > 0 ? "mt-1" : ""}
-              />
+            <Select
+              key={`booking-${bookingItems.length}`}
+              value={bookingItemText}
+              onValueChange={v => {
+                if (v === "_create_booking_item") {
+                  setCreatingBookingItem(true)
+                  setNewBookingItemName("")
+                  return
+                }
+                setBookingItemText(v)
+                setCreatingBookingItem(false)
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Buchungsposten wählen..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_create_booking_item" className="text-primary font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <Plus className="h-3.5 w-3.5" />Neuen Buchungsposten erstellen
+                  </span>
+                </SelectItem>
+                {bookingItems.length > 0 && <SelectSeparator />}
+                {bookingItems.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {creatingBookingItem && (
+              <div className="flex gap-1.5 mt-1">
+                <Input
+                  autoFocus
+                  placeholder="Buchungspostenname..."
+                  value={newBookingItemName}
+                  onChange={e => setNewBookingItemName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { e.preventDefault(); handleCreateBookingItem() }
+                    if (e.key === "Escape") setCreatingBookingItem(false)
+                  }}
+                />
+                <Button type="button" size="sm" onClick={handleCreateBookingItem}
+                  disabled={!newBookingItemName.trim()} className="shrink-0">
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="sm" variant="ghost"
+                  onClick={() => setCreatingBookingItem(false)} className="shrink-0 text-muted-foreground">
+                  ✕
+                </Button>
+              </div>
             )}
           </div>
 
@@ -206,12 +250,12 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none">— Kein Projekt —</SelectItem>
-                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                <SelectSeparator />
                 <SelectItem value="_create_project" className="text-primary font-medium">
                   <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" />Neues Projekt erstellen</span>
                 </SelectItem>
+                <SelectSeparator />
+                <SelectItem value="_none">— Kein Projekt —</SelectItem>
+                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
             {creatingProject && (
@@ -239,12 +283,12 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
-                {tasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                <SelectSeparator />
                 <SelectItem value="_create_task" className="text-primary font-medium">
                   <span className="flex items-center gap-1.5"><Plus className="h-3.5 w-3.5" />Neue Aufgabe erstellen</span>
                 </SelectItem>
+                <SelectSeparator />
+                <SelectItem value="_none">— Keine Aufgabe —</SelectItem>
+                {tasks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
               </SelectContent>
             </Select>
             {creatingTask && (
