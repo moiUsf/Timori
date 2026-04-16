@@ -33,6 +33,7 @@
     "holidays": "Feiertage",
     "expenses": "Spesenabrechnung",
     "clients": "Kunden & Projekte",
+    "auslastung": "Auslastung",
     "reports": "Berichte & Export",
     "settings": "Einstellungen",
     "logout": "Abmelden"
@@ -259,5 +260,34 @@
     "filterNoClient": "Kein Kunde",
     "saved": "Gespeichert",
     "deleted": "Gelöscht"
+  },
+  "auslastung": {
+    "title": "Auslastungsübersicht",
+    "addTile": "Kachel hinzufügen",
+    "noTiles": "Noch keine Kacheln. Klicke auf \"Kachel hinzufügen\" um loszulegen.",
+    "budget": "Budget",
+    "consumed": "Geleistet",
+    "periodTotal": "Gesamt",
+    "periodMonthly": "Monatlich",
+    "unitH": "h",
+    "unitMT": "MT",
+    "typeProject": "Projekt",
+    "typeTask": "Aufgabe",
+    "typeBookingItem": "Buchungsposten",
+    "remaining": "{h} verbleibend",
+    "overdrawn": "{h} überzogen",
+    "hoursOf": "{consumed} / {budget}",
+    "dialogTitle": "Kachel hinzufügen",
+    "selectType": "Typ",
+    "selectEntity": "Eintrag wählen...",
+    "budgetLabel": "Budget",
+    "periodLabel": "Zeitraum",
+    "saved": "Kachel gespeichert",
+    "deleted": "Kachel entfernt",
+    "carryOver": "Übertrag",
+    "noCarryOver": "Neu je Monat",
+    "defaults": "Kachel-Standardwerte",
+    "defaultsDesc": "Vorausgefüllte Werte beim Hinzufügen neuer Kacheln",
+    "defaultsSaved": "Standardwerte gespeichert"
   }
 }

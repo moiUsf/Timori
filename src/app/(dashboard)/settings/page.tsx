@@ -14,7 +14,7 @@ import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { toast } from "sonner"
 import { Sun, Moon, Monitor, ChevronUp, ChevronDown, FolderOpen, Download, Upload } from "lucide-react"
 import { saveHandleToIDB, loadHandleFromIDB, downloadBlob, writeToFolder } from "@/lib/backup-idb"
-import type { TaetigkeitField } from "@/types/database"
+import type { TaetigkeitField, UtilizationConfig } from "@/types/database"
 import { DEFAULT_TAETIGKEIT_FIELDS } from "@/lib/reports/taetigkeitsbericht-data"
 import { useTimerDisplay } from "@/lib/timer-display-context"
 
@@ -82,6 +82,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const t = useTranslations("settings")
   const tCommon = useTranslations("common")
+  const tAuslastung = useTranslations("auslastung")
   const [mounted, setMounted] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(false)
@@ -93,6 +94,12 @@ export default function SettingsPage() {
     name: "", personal_nr: "", working_hours_per_day: "8",
     vacation_quota: "30", federal_state: "DE-NW", hourly_rate: "",
   })
+  const [utilConfig, setUtilConfig] = useState<UtilizationConfig>({
+    default_type: "project",
+    default_unit: "h",
+    default_carry_over: false,
+  })
+  const [savingUtilConfig, setSavingUtilConfig] = useState(false)
   const [backupSchedule, setBackupSchedule] = useState<"never"|"daily"|"weekly"|"monthly">("never")
   const [backupTime, setBackupTime] = useState("02:00")
   const [backupFolderName, setBackupFolderName] = useState<string|null>(null)
@@ -227,6 +234,9 @@ export default function SettingsPage() {
               setProfile(data)
               const activeFields = data.report_config?.taetigkeit_fields ?? DEFAULT_TAETIGKEIT_FIELDS
               setFieldItems(buildFieldItems(activeFields))
+              if (data.utilization_config) {
+                setUtilConfig(data.utilization_config as UtilizationConfig)
+              }
               setForm({
                 name: data.name,
                 personal_nr: data.personal_nr ?? "",
@@ -308,6 +318,17 @@ export default function SettingsPage() {
   function saveTimerConfig() {
     saveTimerFields(timerFieldItems)
     toast.success("Timer-Anzeige gespeichert")
+  }
+
+  async function handleSaveUtilConfig() {
+    if (!profile) return
+    setSavingUtilConfig(true)
+    const { error } = await supabase.from("users_profile")
+      .update({ utilization_config: utilConfig })
+      .eq("id", profile.id)
+    if (error) toast.error(error.message)
+    else toast.success(tAuslastung("defaultsSaved"))
+    setSavingUtilConfig(false)
   }
 
   async function handleSaveConfig() {
@@ -512,6 +533,88 @@ export default function SettingsPage() {
           <div className="flex justify-end">
             <Button type="button" size="sm" onClick={saveTimerConfig}>
               {tCommon("save")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{tAuslastung("defaults")}</CardTitle>
+          <p className="text-xs text-muted-foreground">{tAuslastung("defaultsDesc")}</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>{tAuslastung("selectType")}</Label>
+            <div className="flex gap-1">
+              {(["project", "task", "booking_item"] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setUtilConfig({ ...utilConfig, default_type: type })}
+                  className={`flex-1 text-xs px-2 py-1.5 rounded-md border transition-colors ${
+                    utilConfig.default_type === type
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:bg-accent"
+                  }`}
+                >
+                  {type === "project" ? tAuslastung("typeProject") : type === "task" ? tAuslastung("typeTask") : tAuslastung("typeBookingItem")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{tAuslastung("budgetLabel")}</Label>
+            <div className="flex gap-1">
+              {(["h", "MT"] as const).map((unit) => (
+                <button
+                  key={unit}
+                  type="button"
+                  onClick={() => setUtilConfig({ ...utilConfig, default_unit: unit })}
+                  className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                    utilConfig.default_unit === unit
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-muted-foreground border-border hover:bg-accent"
+                  }`}
+                >
+                  {unit === "h" ? tAuslastung("unitH") : tAuslastung("unitMT")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>{tAuslastung("carryOver")}</Label>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setUtilConfig({ ...utilConfig, default_carry_over: false })}
+                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                  !utilConfig.default_carry_over
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:bg-accent"
+                }`}
+              >
+                {tAuslastung("noCarryOver")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setUtilConfig({ ...utilConfig, default_carry_over: true })}
+                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                  utilConfig.default_carry_over
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:bg-accent"
+                }`}
+              >
+                {tAuslastung("carryOver")}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button type="button" size="sm" onClick={handleSaveUtilConfig} disabled={savingUtilConfig}>
+              {savingUtilConfig ? tCommon("saving") : tCommon("save")}
             </Button>
           </div>
         </CardContent>

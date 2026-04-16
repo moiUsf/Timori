@@ -33,6 +33,7 @@
     "holidays": "Public Holidays",
     "expenses": "Expense Reports",
     "clients": "Clients & Projects",
+    "auslastung": "Utilization",
     "reports": "Reports & Export",
     "settings": "Settings",
     "logout": "Log Out"
@@ -259,5 +260,34 @@
     "filterNoClient": "No Client",
     "saved": "Saved",
     "deleted": "Deleted"
+  },
+  "auslastung": {
+    "title": "Utilization Overview",
+    "addTile": "Add Tile",
+    "noTiles": "No tiles yet. Click \"Add Tile\" to get started.",
+    "budget": "Budget",
+    "consumed": "Consumed",
+    "periodTotal": "Total",
+    "periodMonthly": "Monthly",
+    "unitH": "h",
+    "unitMT": "MD",
+    "typeProject": "Project",
+    "typeTask": "Task",
+    "typeBookingItem": "Booking Item",
+    "remaining": "{h} remaining",
+    "overdrawn": "{h} overdrawn",
+    "hoursOf": "{consumed} / {budget}",
+    "dialogTitle": "Add Tile",
+    "selectType": "Type",
+    "selectEntity": "Select entry...",
+    "budgetLabel": "Budget",
+    "periodLabel": "Period",
+    "saved": "Tile saved",
+    "deleted": "Tile removed",
+    "carryOver": "Carry Over",
+    "noCarryOver": "Reset Monthly",
+    "defaults": "Tile Defaults",
+    "defaultsDesc": "Pre-filled values when adding new tiles",
+    "defaultsSaved": "Defaults saved"
   }
 }

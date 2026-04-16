@@ -1,8 +1,25 @@
 export type HourCode = "BEV" | "BENV" | "RZV" | "RZNV"
+
+export interface UtilizationTile {
+  id: string
+  type: "project" | "task" | "booking_item"
+  entity_id: string      // project.id / task.id / booking_item.name (for booking_item!)
+  entity_name: string    // denormalized display name
+  budget_h: number       // always stored in hours internally
+  budget_unit: "h" | "MT"
+  period: "total" | "monthly"
+  carry_over?: boolean   // monthly only: carry unused budget to next month
+}
 export type TaetigkeitField = "booking_item" | "task" | "description" | "project"
 
 export interface ReportConfig {
   taetigkeit_fields: TaetigkeitField[]
+}
+
+export interface UtilizationConfig {
+  default_type?: "project" | "task" | "booking_item"
+  default_unit?: "h" | "MT"
+  default_carry_over?: boolean
 }
 export type VacationType = "annual" | "special" | "training" | "illness"
 export type ExpenseCategory =
@@ -22,6 +39,8 @@ export interface UserProfile {
   federal_state: string
   hourly_rate: number | null
   report_config: ReportConfig | null
+  utilization_tiles: UtilizationTile[] | null
+  utilization_config: UtilizationConfig | null
   created_at: string
   updated_at: string
 }
