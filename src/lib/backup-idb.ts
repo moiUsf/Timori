@@ -84,9 +84,12 @@ export function isBackupDue(
 
   if (!lastBackupAt) return true
 
-  const diffDays = (Date.now() - new Date(lastBackupAt).getTime()) / 86_400_000
-  if (schedule === "daily") return diffDays >= 1
-  if (schedule === "weekly") return diffDays >= 7
-  if (schedule === "monthly") return diffDays >= 30
+  const lastMs = new Date(lastBackupAt).getTime()
+  const scheduledTodayMs = scheduledToday.getTime()
+
+  // Due if the last backup happened before the current scheduled slot
+  if (schedule === "daily") return lastMs < scheduledTodayMs
+  if (schedule === "weekly") return scheduledTodayMs - lastMs >= 7 * 86_400_000
+  if (schedule === "monthly") return scheduledTodayMs - lastMs >= 30 * 86_400_000
   return false
 }

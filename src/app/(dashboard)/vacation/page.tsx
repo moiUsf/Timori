@@ -34,6 +34,8 @@ export default function VacationPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [entries, setEntries] = useState<VacationEntry[]>([])
   const [year, setYear] = useState(new Date().getFullYear())
+  const [month, setMonth] = useState(new Date().getMonth() + 1)
+  const [viewMode, setViewMode] = useState<"year" | "month">("year")
   const [dialog, setDialog] = useState(false)
   const [editingEntry, setEditingEntry] = useState<VacationEntry | null>(null)
   const [form, setForm] = useState<VacationForm>(emptyForm())
@@ -144,6 +146,17 @@ export default function VacationPage() {
     setForm(emptyForm())
   }
 
+  const monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"]
+
+  const visibleEntries = viewMode === "month"
+    ? entries.filter(e => {
+        const from = e.date_from.slice(0, 7)
+        const to = e.date_to.slice(0, 7)
+        const ym = `${year}-${String(month).padStart(2, "0")}`
+        return from <= ym && to >= ym
+      })
+    : entries
+
   const byType = (type: string) => entries.filter((e) => e.type === type)
   const totalAnnual = byType("annual").reduce((s, e) => s + e.days, 0)
   const totalIllness = byType("illness").reduce((s, e) => s + e.days, 0)
@@ -155,11 +168,37 @@ export default function VacationPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="text-muted-foreground">{t("year", { year })}</p>
+          <p className="text-muted-foreground">
+            {viewMode === "month" ? `${monthNames[month - 1]} ${year}` : t("year", { year })}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={String(year)} onValueChange={(v) => { setYear(parseInt(v)); loadEntries(userId, parseInt(v)) }}>
-            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+          <Select
+            value={String(month)}
+            onValueChange={(v) => { setMonth(parseInt(v)); setViewMode("month") }}
+            onOpenChange={(open) => { if (open) setViewMode("month") }}
+          >
+            <SelectTrigger
+              className={`w-36 font-medium transition-colors ${viewMode === "month" ? "bg-primary text-primary-foreground border-primary [&>svg]:text-primary-foreground" : ""}`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {monthNames.map((name, i) => (
+                <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={String(year)}
+            onValueChange={(v) => { setYear(parseInt(v)); loadEntries(userId, parseInt(v)); setViewMode("year") }}
+            onOpenChange={(open) => { if (open) setViewMode("year") }}
+          >
+            <SelectTrigger
+              className={`w-28 font-medium transition-colors ${viewMode === "year" ? "bg-primary text-primary-foreground border-primary [&>svg]:text-primary-foreground" : ""}`}
+            >
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {[year - 1, year, year + 1].map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
             </SelectContent>
@@ -211,14 +250,16 @@ export default function VacationPage() {
           <CardTitle className="text-base">{t("entries", { year })}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {entries.length === 0 ? (
+          {visibleEntries.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t("noEntries")}</p>
           ) : (
             <div className="divide-y">
-              {entries.map((entry) => {
+              {visibleEntries.map((entry) => {
                 const config = TYPE_CONFIG[entry.type as keyof typeof TYPE_CONFIG]
                 return (
-                  <div key={entry.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                  <div key={entry.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 group hover:bg-muted cursor-pointer"
+                    onClick={() => openEdit(entry)}>
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}>
                       {config.label}
                     </span>
@@ -227,7 +268,8 @@ export default function VacationPage() {
                     <span className="text-sm">{formatDate(entry.date_to)}</span>
                     <span className="text-sm font-medium">{t("daysLabel", { days: entry.days })}</span>
                     {entry.notes && <span className="text-xs text-muted-foreground truncate flex-1">{entry.notes}</span>}
-                    <div className="flex items-center gap-1 ml-auto">
+                    <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                         onClick={() => openEdit(entry)}>
                         <Pencil className="h-4 w-4" />
@@ -283,9 +325,14 @@ export default function VacationPage() {
               <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>{tCommon("cancel")}</Button>
-            <Button onClick={handleSave}>{tCommon("save")}</Button>
+          <DialogFooter className="flex-row justify-between sm:justify-between">
+            {editingEntry
+              ? <Button variant="destructive" onClick={() => { handleDelete(editingEntry.id); closeDialog() }}><Trash2 className="h-4 w-4 mr-1.5" />Löschen</Button>
+              : <span />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={closeDialog}>{tCommon("cancel")}</Button>
+              <Button onClick={handleSave}>{tCommon("save")}</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

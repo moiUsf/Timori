@@ -58,7 +58,12 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
       .on("postgres_changes", { event: "*", schema: "public", table: "active_timers" }, loadTimers)
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    window.addEventListener("timori:timer-started", loadTimers)
+
+    return () => {
+      supabase.removeChannel(channel)
+      window.removeEventListener("timori:timer-started", loadTimers)
+    }
   }, [loadTimers, supabase])
 
   function getElapsed(timer: ActiveTimer): number {

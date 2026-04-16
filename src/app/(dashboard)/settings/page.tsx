@@ -145,8 +145,8 @@ export default function SettingsPage() {
       const filename = `timori-backup-${ts}.json`
 
       const handle = await loadHandleFromIDB()
-      // Try folder first (will prompt for permission if needed, since this is user-initiated)
       if (handle) {
+        // Folder configured — only save there, never download
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const h = handle as any
@@ -161,15 +161,20 @@ export default function SettingsPage() {
             setLastBackupAt(iso)
             localStorage.setItem("lastBackupAt", iso)
             toast.success(`Backup gespeichert in „${backupFolderName ?? handle.name}"`)
-            return
+          } else {
+            toast.error("Ordnerzugriff verweigert — bitte Backup-Ordner erneut auswählen")
           }
-        } catch { /* fall through to download */ }
+        } catch {
+          toast.error("Backup fehlgeschlagen — bitte Backup-Ordner erneut auswählen")
+        }
+      } else {
+        // No folder configured — download
+        downloadBlob(blob, filename)
+        const iso = new Date().toISOString()
+        setLastBackupAt(iso)
+        localStorage.setItem("lastBackupAt", iso)
+        toast.success("Backup erstellt")
       }
-      downloadBlob(blob, filename)
-      const iso = new Date().toISOString()
-      setLastBackupAt(iso)
-      localStorage.setItem("lastBackupAt", iso)
-      toast.success("Backup erstellt")
     } catch {
       toast.error("Backup fehlgeschlagen")
     } finally {
