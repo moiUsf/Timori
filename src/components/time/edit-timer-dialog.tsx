@@ -195,6 +195,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
           <div className="space-y-2">
             <Label>Projekt</Label>
             <Select
+              key={`project-${projectId}-${projects.length}`}
               value={projectId || "_none"}
               onValueChange={v => {
                 if (v === "_create_project") { setCreatingProject(true); setNewProjectName(""); return }
@@ -228,6 +229,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
           <div className="space-y-2">
             <Label>Aufgabe (optional)</Label>
             <Select
+              key={`task-${taskId}-${tasks.length}`}
               value={taskId || "_none"}
               onValueChange={v => {
                 if (v === "_create_task") { setCreatingTask(true); setNewTaskName(""); return }
