@@ -41,10 +41,13 @@ export function DashboardShell({
         const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
         const filename = `timori-backup-${ts}.json`
 
-        // Try saving to the user's chosen folder first (no permission prompt for auto-backup)
         const handle = await loadHandleFromIDB()
-        const savedToFolder = handle ? await writeToFolder(handle, blob, filename) : false
-        if (!savedToFolder) {
+        if (handle) {
+          // Folder configured — only write there, never download
+          const saved = await writeToFolder(handle, blob, filename)
+          if (!saved) return  // permission lapsed; skip — reminder stays visible
+        } else {
+          // No folder configured — fall back to download
           downloadBlob(blob, filename)
         }
 

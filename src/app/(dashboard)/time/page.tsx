@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatHours, formatDate, hoursFromTimeRange, cn } from "@/lib/utils"
-import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText } from "lucide-react"
+import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText, Play } from "lucide-react"
 import { toast } from "sonner"
 import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter"
+import { StartTimerDialog, type TimerInitialValues } from "@/components/time/start-timer-dialog"
 
 type TaskWithBooking = Task & { default_booking_item?: { id: string; name: string } | null }
 type EntryWithRelations = TimeEntry & { client: Client; project: Project; task?: Task }
@@ -88,6 +89,8 @@ export default function TimePage() {
   const [filterClient, setFilterClient] = useState<string[]>([])
   const [filterBookingItem, setFilterBookingItem] = useState<string[]>([])
   const [filterTask, setFilterTask] = useState<string[]>([])
+  const [timerDialogOpen, setTimerDialogOpen] = useState(false)
+  const [timerInitialValues, setTimerInitialValues] = useState<TimerInitialValues | undefined>()
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
@@ -241,6 +244,18 @@ export default function TimePage() {
     setNewTaskName("")
     setShowForm(true)
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0)
+  }
+
+  function openTimerFromEntry(entry: EntryWithRelations) {
+    setTimerInitialValues({
+      clientId: entry.client_id,
+      projectId: entry.project_id ?? undefined,
+      taskId: entry.task_id ?? undefined,
+      bookingItemText: entry.booking_item_text ?? "",
+      description: entry.description ?? "",
+      code: entry.code,
+    })
+    setTimerDialogOpen(true)
   }
 
   async function handleCreateProject() {
@@ -874,6 +889,10 @@ export default function TimePage() {
                             {/* Actions */}
                             <div className="flex justify-end gap-1 mt-1">
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
+                                title="Timer starten" onClick={(e) => { e.stopPropagation(); openTimerFromEntry(entry) }}>
+                                <Play className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
                                 title="Klonen" onClick={(e) => { e.stopPropagation(); openClone(entry) }}>
                                 <Copy className="h-4 w-4" />
                               </Button>
@@ -918,6 +937,10 @@ export default function TimePage() {
                               {formatHours(entry.net_h)}
                             </span>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+                                title="Timer starten" onClick={(e) => { e.stopPropagation(); openTimerFromEntry(entry) }}>
+                                <Play className="h-4 w-4" />
+                              </Button>
                               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                                 title="Klonen" onClick={(e) => { e.stopPropagation(); openClone(entry) }}>
                                 <Copy className="h-4 w-4" />
@@ -993,6 +1016,16 @@ export default function TimePage() {
           open={reportDialogOpen}
           onOpenChange={setReportDialogOpen}
           defaultMonth={`${year}-${month.toString().padStart(2, "0")}`}
+        />
+      )}
+
+      {userId && (
+        <StartTimerDialog
+          userId={userId}
+          open={timerDialogOpen}
+          onOpenChange={(open) => { setTimerDialogOpen(open); if (!open) setTimerInitialValues(undefined) }}
+          onCreated={() => { window.dispatchEvent(new CustomEvent("timori:timer-started")) }}
+          initialValues={timerInitialValues}
         />
       )}
     </div>

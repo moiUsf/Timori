@@ -15,6 +15,15 @@ import {
 import { toast } from "sonner"
 import { Play, Plus } from "lucide-react"
 
+export interface TimerInitialValues {
+  clientId?: string
+  projectId?: string
+  taskId?: string
+  bookingItemText?: string
+  description?: string
+  code?: HourCode
+}
+
 const HOUR_CODES: { value: HourCode; label: string }[] = [
   { value: "BEV", label: "BEV — Beratung verrechenbar" },
   { value: "BENV", label: "BENV — Beratung nicht verrechenbar" },
@@ -27,9 +36,10 @@ interface StartTimerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: () => void
+  initialValues?: TimerInitialValues
 }
 
-export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: StartTimerDialogProps) {
+export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initialValues }: StartTimerDialogProps) {
   const supabase = createClient()
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -46,6 +56,18 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
   const [newProjectName, setNewProjectName] = useState("")
   const [creatingTask, setCreatingTask] = useState(false)
   const [newTaskName, setNewTaskName] = useState("")
+
+  // Apply initial values when dialog opens
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!open || !initialValues) return
+    if (initialValues.clientId) setClientId(initialValues.clientId)
+    if (initialValues.projectId) setProjectId(initialValues.projectId)
+    if (initialValues.taskId) setTaskId(initialValues.taskId)
+    if (initialValues.bookingItemText !== undefined) setBookingItemText(initialValues.bookingItemText)
+    if (initialValues.description !== undefined) setDescription(initialValues.description)
+    if (initialValues.code) setCode(initialValues.code)
+  }, [open])
 
   useEffect(() => {
     supabase.from("clients").select("*").eq("user_id", userId).eq("active", true).order("name")
@@ -318,6 +340,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated }: Star
               </SelectContent>
             </Select>
           </div>
+
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>

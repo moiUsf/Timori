@@ -250,11 +250,21 @@ export default function ClientsPage() {
     loadAllBookings(userId)
   }
 
+  async function deleteClient(id: string) {
+    const { error } = await supabase.from("clients").delete().eq("id", id)
+    if (error) { toast.error("Fehler: " + error.message); return }
+    toast.success("Kunde gelöscht")
+    setClientDialog(false); setEditingClient(null)
+    setExpanded((prev) => { const n = new Set(prev); n.delete(id); return n })
+    loadClients(userId)
+  }
+
   async function deleteProject(id: string, clientId: string) {
     const { error } = await supabase.from("projects").delete().eq("id", id)
     if (error) { toast.error("Fehler: " + error.message); return }
     toast.success("Projekt gelöscht")
     setExpandedProjects((prev) => { const n = new Set(prev); n.delete(id); return n })
+    setProjectDialog(false); setEditingProject(null)
     loadProjects(clientId)
     loadFlatProjects(userId)
   }
@@ -337,7 +347,13 @@ export default function ClientsPage() {
                   const clientName = (p as Project & { client?: { name: string } }).client?.name
                   const clientId = (p as Project & { client_id?: string }).client_id ?? ""
                   return (
-                    <div key={p.id} className="flex items-center gap-3 px-4 py-3 group">
+                    <div key={p.id} className="flex items-center gap-3 px-4 py-3 group hover:bg-muted cursor-pointer"
+                      onClick={() => {
+                        setSelectedClientId(clientId)
+                        setEditingProject(p)
+                        setProjectForm({ name: p.name, project_nr: p.project_nr ?? "", sub_project: p.sub_project ?? "", category: p.category ?? "", hourly_rate: p.hourly_rate?.toString() ?? "" })
+                        setProjectDialog(true)
+                      }}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{p.name}</span>
@@ -345,7 +361,8 @@ export default function ClientsPage() {
                         </div>
                         {clientName && <p className="text-xs text-muted-foreground">👤 {clientName}</p>}
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        onClick={e => e.stopPropagation()}>
                         <Button variant="ghost" size="icon" className="h-9 w-9"
                           onClick={() => {
                             setSelectedClientId(clientId)
@@ -425,12 +442,18 @@ export default function ClientsPage() {
                         ) : (
                           <div className="divide-y">
                             {(bookingItems[client.id] ?? []).map((b) => (
-                              <div key={b.id} className="flex items-center gap-3 px-6 py-2 group">
+                              <div key={b.id} className="flex items-center gap-3 px-6 py-2 group hover:bg-muted cursor-pointer"
+                                onClick={() => {
+                                  setEditingBooking(b)
+                                  setBookingForm({ name: b.name, description: b.description ?? "", client_id: client.id })
+                                  setBookingDialog(true)
+                                }}>
                                 <div className="flex-1 min-w-0">
                                   <span className="text-sm font-mono">{b.name}</span>
                                   {b.description && <span className="text-xs text-muted-foreground ml-2">— {b.description}</span>}
                                 </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={e => e.stopPropagation()}>
                                   <Button variant="ghost" size="icon" className="h-9 w-9"
                                     onClick={() => {
                                       setEditingBooking(b)
@@ -467,11 +490,19 @@ export default function ClientsPage() {
                       <div className="divide-y">
                         {(projects[client.id] ?? []).map((p) => (
                           <div key={p.id}>
-                            <div className="flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-muted/20"
-                              onClick={() => toggleProject(p.id)}>
-                              {expandedProjects.has(p.id)
-                                ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                            <div className="flex items-center gap-3 px-6 py-2.5 group hover:bg-muted cursor-pointer"
+                              onClick={() => {
+                                setSelectedClientId(client.id)
+                                setEditingProject(p)
+                                setProjectForm({ name: p.name, project_nr: p.project_nr ?? "", sub_project: p.sub_project ?? "", category: p.category ?? "", hourly_rate: p.hourly_rate?.toString() ?? "" })
+                                setProjectDialog(true)
+                              }}>
+                              <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground"
+                                onClick={e => { e.stopPropagation(); toggleProject(p.id) }}>
+                                {expandedProjects.has(p.id)
+                                  ? <ChevronDown className="h-3.5 w-3.5" />
+                                  : <ChevronRight className="h-3.5 w-3.5" />}
+                              </button>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium">{p.name}</span>
@@ -481,7 +512,7 @@ export default function ClientsPage() {
                                 {p.category && <p className="text-xs text-muted-foreground">{p.category}</p>}
                               </div>
                               {p.hourly_rate && <span className="text-xs text-muted-foreground">{p.hourly_rate} €/h</span>}
-                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                                 <Button variant="ghost" size="sm" className="gap-1 text-xs h-7"
                                   onClick={() => {
                                     setTaskForm({ name: "", description: "", project_id: p.id, client_id: "", default_booking_item_id: "" })
@@ -510,10 +541,12 @@ export default function ClientsPage() {
                                 {(projectTasks[p.id] ?? []).length === 0
                                   ? <p className="text-xs text-muted-foreground">Keine Aufgaben</p>
                                   : (projectTasks[p.id] ?? []).map((t) => (
-                                    <div key={t.id} className="flex items-center gap-2 text-xs py-0.5 group">
+                                    <div key={t.id} className="flex items-center gap-2 text-xs py-1 px-2 -mx-2 rounded group hover:bg-muted cursor-pointer"
+                                      onClick={() => openEditTask(t)}>
                                       <span className="flex-1 font-medium">{t.name}</span>
                                       {t.description && <span className="text-muted-foreground">{t.description}</span>}
-                                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={e => e.stopPropagation()}>
                                         <button className="text-muted-foreground hover:text-foreground"
                                           onClick={() => openEditTask(t)}>
                                           <Pencil className="h-3 w-3" />
@@ -545,10 +578,12 @@ export default function ClientsPage() {
                               </div>
                               <div className="px-10 py-2 space-y-1">
                                 {unassigned.map((t) => (
-                                  <div key={t.id} className="flex items-center gap-2 text-xs py-0.5 group">
+                                  <div key={t.id} className="flex items-center gap-2 text-xs py-1 px-2 -mx-2 rounded group hover:bg-muted cursor-pointer"
+                                    onClick={() => openEditTask(t)}>
                                     <span className="flex-1 font-medium">{t.name}</span>
                                     {t.description && <span className="text-muted-foreground">{t.description}</span>}
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={e => e.stopPropagation()}>
                                       <button className="text-muted-foreground hover:text-foreground"
                                         onClick={() => openEditTask(t)}>
                                         <Pencil className="h-3 w-3" />
@@ -631,7 +666,8 @@ export default function ClientsPage() {
                     const proj = t.project as { name: string } | null
                     const defaultBooking = (t as Task & { default_booking_item?: { name: string } | null }).default_booking_item
                     return (
-                      <div key={t.id} className="flex items-center gap-2 px-4 py-2.5 group">
+                      <div key={t.id} className="flex items-center gap-2 px-4 py-2.5 group hover:bg-muted cursor-pointer"
+                        onClick={() => openEditTask(t)}>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{t.name}</p>
                           {proj && <p className="text-xs text-muted-foreground truncate">📁 {proj.name}</p>}
@@ -639,7 +675,8 @@ export default function ClientsPage() {
                           {t.description && <p className="text-xs text-muted-foreground truncate">{t.description}</p>}
                           {defaultBooking && <p className="text-xs text-muted-foreground font-mono truncate">🔖 {defaultBooking.name}</p>}
                         </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          onClick={e => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                             onClick={() => openEditTask(t)}>
                             <Pencil className="h-4 w-4" />
@@ -686,14 +723,20 @@ export default function ClientsPage() {
                   : filteredBookings.map((b) => {
                     const clientName = clients.find(c => c.id === b.client_id)?.name
                     return (
-                      <div key={b.id} className="flex items-center gap-2 px-4 py-2.5 group">
+                      <div key={b.id} className="flex items-center gap-2 px-4 py-2.5 group hover:bg-muted cursor-pointer"
+                        onClick={() => {
+                          setEditingBooking(b)
+                          setBookingForm({ name: b.name, description: b.description ?? "", client_id: b.client_id ?? "" })
+                          setBookingDialog(true)
+                        }}>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-mono truncate">{b.name}</p>
                           {clientName && <p className="text-xs text-muted-foreground">👤 {clientName}</p>}
                           {!b.client_id && <p className="text-xs text-muted-foreground">Ohne Kundenzuordnung</p>}
                           {b.description && <p className="text-xs text-muted-foreground truncate">{b.description}</p>}
                         </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          onClick={e => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                             onClick={() => {
                               setEditingBooking(b)
@@ -733,9 +776,14 @@ export default function ClientsPage() {
               <Switch checked={clientForm.default_remote} onCheckedChange={(v) => setClientForm({ ...clientForm, default_remote: v })} />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setClientDialog(false)}>Abbrechen</Button>
-            <Button onClick={saveClient}>{editingClient ? "Speichern" : "Erstellen"}</Button>
+          <DialogFooter className="flex-row justify-between sm:justify-between">
+            {editingClient
+              ? <Button variant="destructive" onClick={() => deleteClient(editingClient.id)}><Trash2 className="h-4 w-4 mr-1.5" />Löschen</Button>
+              : <span />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setClientDialog(false)}>Abbrechen</Button>
+              <Button onClick={saveClient}>{editingClient ? "Speichern" : "Erstellen"}</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -755,9 +803,14 @@ export default function ClientsPage() {
               <div className="space-y-2"><Label>Stundensatz (€)</Label><Input type="number" step="0.01" value={projectForm.hourly_rate} onChange={(e) => setProjectForm({ ...projectForm, hourly_rate: e.target.value })} /></div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setProjectDialog(false)}>Abbrechen</Button>
-            <Button onClick={saveProject}>{editingProject ? "Speichern" : "Erstellen"}</Button>
+          <DialogFooter className="flex-row justify-between sm:justify-between">
+            {editingProject
+              ? <Button variant="destructive" onClick={() => deleteProject(editingProject.id, selectedClientId)}><Trash2 className="h-4 w-4 mr-1.5" />Löschen</Button>
+              : <span />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setProjectDialog(false)}>Abbrechen</Button>
+              <Button onClick={saveProject}>{editingProject ? "Speichern" : "Erstellen"}</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -808,9 +861,14 @@ export default function ClientsPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskDialog(false)}>Abbrechen</Button>
-            <Button onClick={saveTask}>{editingTask ? "Speichern" : "Erstellen"}</Button>
+          <DialogFooter className="flex-row justify-between sm:justify-between">
+            {editingTask
+              ? <Button variant="destructive" onClick={() => { deleteTask(editingTask.id, editingTask.project_id); setTaskDialog(false) }}><Trash2 className="h-4 w-4 mr-1.5" />Löschen</Button>
+              : <span />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setTaskDialog(false)}>Abbrechen</Button>
+              <Button onClick={saveTask}>{editingTask ? "Speichern" : "Erstellen"}</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -839,9 +897,14 @@ export default function ClientsPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBookingDialog(false)}>Abbrechen</Button>
-            <Button onClick={saveBooking}>{editingBooking ? "Speichern" : "Erstellen"}</Button>
+          <DialogFooter className="flex-row justify-between sm:justify-between">
+            {editingBooking
+              ? <Button variant="destructive" onClick={() => { deleteBooking(editingBooking.id, editingBooking.client_id); setBookingDialog(false) }}><Trash2 className="h-4 w-4 mr-1.5" />Löschen</Button>
+              : <span />}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setBookingDialog(false)}>Abbrechen</Button>
+              <Button onClick={saveBooking}>{editingBooking ? "Speichern" : "Erstellen"}</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
