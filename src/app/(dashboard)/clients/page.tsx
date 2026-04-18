@@ -307,7 +307,7 @@ export default function ClientsPage() {
           </Button>
           <Button onClick={() => {
             setEditingClient(null)
-            setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false })
+            setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false, monthly_booked_days: "" })
             setClientDialog(true)
           }} className="gap-2">
             <Plus className="h-4 w-4" />Neuer Kunde
