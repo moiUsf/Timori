@@ -62,7 +62,7 @@
   "dashboard": {
     "title": "Dashboard",
     "hoursThisMonth": "Stunden diesen Monat",
-    "hoursTarget": "Ziel: {target} ({days} AT)",
+    "hoursTarget": "Ziel: {target} h ({days} MT)",
     "overtime": "Überstunden",
     "shortfall": "Fehlstunden",
     "totalOvertime": "Überstunden gesamt",
@@ -74,12 +74,12 @@
     "timersRunning": "{count} Timer laufen",
     "clientUtilization": "Kundenauslastung {month}",
     "noUtilization": "Keine Einträge oder gebuchte Auslastung diesen Monat.",
-    "bookedDaysUnit": "AT",
-    "hoursOf": "{consumed} von {booked}",
-    "remaining": "{h} offen",
-    "overdrawn": "{h} überzogen",
-    "workedNoUtilization": "{h} gearbeitet — keine Auslastung hinterlegt",
-    "holidaysThisMonth": "Feiertage diesen Monat",
+    "bookedDaysUnit": "MT",
+    "hoursOf": "{consumed} h geleistet von {booked} h",
+    "remaining": "{h} h - {pct}% offen",
+    "overdrawn": "{h} h überzogen",
+    "workedNoUtilization": "{h} h gearbeitet — keine Auslastung hinterlegt",
+    "holidaysThisMonth": "Feiertage und Urlaub diesen Monat",
     "noHolidays": "Keine weiteren Feiertage"
   },
   "time": {
@@ -269,6 +269,7 @@
     "consumed": "Geleistet",
     "periodTotal": "Gesamt",
     "periodMonthly": "Monatlich",
+    "periodRange": "Datum",
     "unitH": "h",
     "unitMT": "MT",
     "typeProject": "Projekt",
@@ -278,6 +279,7 @@
     "overdrawn": "{h} überzogen",
     "hoursOf": "{consumed} / {budget}",
     "dialogTitle": "Kachel hinzufügen",
+    "editTitle": "Kachel bearbeiten",
     "selectType": "Typ",
     "selectEntity": "Eintrag wählen...",
     "budgetLabel": "Budget",
@@ -288,6 +290,8 @@
     "noCarryOver": "Neu je Monat",
     "defaults": "Kachel-Standardwerte",
     "defaultsDesc": "Vorausgefüllte Werte beim Hinzufügen neuer Kacheln",
-    "defaultsSaved": "Standardwerte gespeichert"
+    "defaultsSaved": "Standardwerte gespeichert",
+    "allClients": "Alle",
+    "noClient": "Kein Kunde"
   }
 }

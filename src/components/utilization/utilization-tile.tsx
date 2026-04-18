@@ -4,20 +4,20 @@ import { useTranslations } from "next-intl"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Trash2, Pencil } from "lucide-react"
+import { Trash2, Pencil, GripVertical } from "lucide-react"
 import { formatHours } from "@/lib/utils"
 import type { UtilizationTile as TileType } from "@/types/database"
-import { useState } from "react"
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 interface UtilizationTileProps {
   tile: TileType
   consumedH: number
-  effectiveBudget?: number   // set for monthly carry-over tiles, overrides tile.budget_h
+  effectiveBudget?: number
   loading: boolean
   hoursPerDay: number
   onDelete: (id: string) => void
-  onUpdate: (updated: TileType) => void
+  onEdit: (tile: TileType) => void
 }
 
 function barColor(pct: number) {
@@ -33,11 +33,11 @@ export function UtilizationTile({
   loading,
   hoursPerDay,
   onDelete,
-  onUpdate,
+  onEdit,
 }: UtilizationTileProps) {
   const t = useTranslations("auslastung")
-  const [editingBudget, setEditingBudget] = useState(false)
-  const [budgetInput, setBudgetInput] = useState("")
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tile.id })
 
   const budgetForCalc = effectiveBudget ?? tile.budget_h
   const pct = budgetForCalc > 0 ? Math.min(100, (consumedH / budgetForCalc) * 100) : 0
@@ -56,145 +56,82 @@ export function UtilizationTile({
     return t("typeBookingItem")
   }
 
-  function startEditBudget() {
-    const currentDisplay =
-      tile.budget_unit === "MT"
-        ? (tile.budget_h / hoursPerDay).toFixed(1)
-        : tile.budget_h.toFixed(1)
-    setBudgetInput(currentDisplay)
-    setEditingBudget(true)
-  }
+  const rangeDateClass = (() => {
+    if (tile.period !== "range" || !tile.date_to) return ""
+    const now = new Date(); now.setHours(0, 0, 0, 0)
+    const [y, m, d] = tile.date_to.split("-").map(Number)
+    const end = new Date(y, m - 1, d)
+    const diffDays = Math.floor((end.getTime() - now.getTime()) / 86_400_000)
+    if (diffDays < 0) return "text-red-500 font-medium"
+    if (diffDays <= 21) return "text-amber-500 font-medium"
+    return ""
+  })()
 
-  function commitBudget() {
-    const val = parseFloat(budgetInput)
-    if (!isNaN(val) && val > 0) {
-      const newBudgetH = tile.budget_unit === "MT" ? val * hoursPerDay : val
-      onUpdate({ ...tile, budget_h: newBudgetH })
-    }
-    setEditingBudget(false)
-  }
-
-  function toggleUnit() {
-    onUpdate({ ...tile, budget_unit: tile.budget_unit === "h" ? "MT" : "h" })
-  }
-
-  function togglePeriod(period: "total" | "monthly") {
-    if (period !== tile.period) onUpdate({ ...tile, period })
-  }
-
-  function toggleCarryOver(carry_over: boolean) {
-    if (carry_over !== !!tile.carry_over) onUpdate({ ...tile, carry_over })
-  }
+  const periodLabel = tile.period === "monthly"
+    ? `${t("periodMonthly")}${tile.carry_over ? ` · ${t("carryOver")}` : ""}`
+    : tile.period === "range" && tile.date_from && tile.date_to
+    ? `${tile.date_from} – ${tile.date_to}`
+    : t("periodTotal")
 
   return (
-    <Card className="flex flex-col">
+    <Card
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex flex-col ${isDragging ? "opacity-50 shadow-lg" : ""}`}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <Badge variant="secondary" className="text-xs shrink-0">{typeLabel()}</Badge>
-            <span className="text-sm font-medium truncate">{tile.entity_name}</span>
+          <div className="flex items-start gap-1 min-w-0 flex-1">
+            <button
+              {...attributes}
+              {...listeners}
+              className="mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 touch-none"
+              tabIndex={-1}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="secondary" className="text-xs shrink-0">{typeLabel()}</Badge>
+                <span className="text-sm font-medium truncate">{tile.entity_name}</span>
+              </div>
+              {tile.client_name && (
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{tile.client_name}</p>
+              )}
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-            onClick={() => onDelete(tile.id)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        {/* Period toggle */}
-        <div className="flex gap-1 mt-1">
-          {(["total", "monthly"] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => togglePeriod(p)}
-              className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
-                tile.period === p
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-accent"
-              }`}
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              onClick={() => onEdit(tile)}
             >
-              {p === "total" ? t("periodTotal") : t("periodMonthly")}
-            </button>
-          ))}
-        </div>
-
-        {/* Carry-over toggle — only for monthly */}
-        {tile.period === "monthly" && (
-          <div className="flex gap-1">
-            <button
-              onClick={() => toggleCarryOver(false)}
-              className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
-                !tile.carry_over
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-accent"
-              }`}
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+              onClick={() => onDelete(tile.id)}
             >
-              {t("noCarryOver")}
-            </button>
-            <button
-              onClick={() => toggleCarryOver(true)}
-              className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
-                tile.carry_over
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              {t("carryOver")}
-            </button>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
-        )}
-
-        {/* Unit toggle */}
-        <div className="flex gap-1">
-          {(["h", "MT"] as const).map((unit) => (
-            <button
-              key={unit}
-              onClick={toggleUnit}
-              className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
-                tile.budget_unit === unit
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              {unit === "h" ? t("unitH") : t("unitMT")}
-            </button>
-          ))}
         </div>
+        <p className={`text-xs ${rangeDateClass || "text-muted-foreground"}`}>{periodLabel}</p>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-2 pt-0">
-        {/* Budget row */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">{t("budget")}</span>
-          {editingBudget ? (
-            <Input
-              autoFocus
-              className="h-6 w-24 text-xs text-right px-1"
-              value={budgetInput}
-              onChange={(e) => setBudgetInput(e.target.value)}
-              onBlur={commitBudget}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitBudget()
-                if (e.key === "Escape") setEditingBudget(false)
-              }}
-            />
-          ) : (
-            <button className="flex items-center gap-1 group" onClick={startEditBudget}>
-              <span className="font-medium">
-                {/* Show effective budget for carry-over tiles */}
-                {effectiveBudget !== undefined && effectiveBudget !== tile.budget_h
-                  ? `${displayValue(effectiveBudget)} (${displayValue(tile.budget_h)}/M)`
-                  : displayValue(tile.budget_h)}
-              </span>
-              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-          )}
+          <span className="font-medium">
+            {effectiveBudget !== undefined && effectiveBudget !== tile.budget_h
+              ? `${displayValue(effectiveBudget)} (${displayValue(tile.budget_h)}/M)`
+              : displayValue(tile.budget_h)}
+          </span>
         </div>
 
-        {/* Progress bar */}
         <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barColor(pct)}`}
@@ -202,7 +139,6 @@ export function UtilizationTile({
           />
         </div>
 
-        {/* Consumed / budget */}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           {loading ? (
             <span>…</span>
@@ -212,12 +148,16 @@ export function UtilizationTile({
           <span className="font-medium">{Math.round(pct)}%</span>
         </div>
 
-        {/* Remaining / overdrawn */}
         {!loading && (
-          <div className={`text-xs font-medium ${remainingH < 0 ? "text-red-500" : "text-muted-foreground"}`}>
-            {remainingH >= 0
-              ? t("remaining", { h: displayValue(remainingH) })
-              : t("overdrawn", { h: displayValue(Math.abs(remainingH)) })}
+          <div className={`text-xs font-medium flex items-center justify-between ${remainingH < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+            <span>
+              {remainingH >= 0
+                ? t("remaining", { h: displayValue(remainingH) })
+                : t("overdrawn", { h: displayValue(Math.abs(remainingH)) })}
+            </span>
+            {budgetForCalc > 0 && (
+              <span>{Math.round(Math.max(0, 100 - (consumedH / budgetForCalc) * 100))}%</span>
+            )}
           </div>
         )}
       </CardContent>

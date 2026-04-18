@@ -260,22 +260,30 @@ export function TaetigkeitsberichtDialog({
       const invalid = previewRows.filter(r => r.id && r.von && r.bis &&
         (r.von >= r.bis || calcBrutto(r.von, r.bis) <= 0))
       if (invalid.length > 0) {
-        toast.error(t("validationBisAfterVon"))
+        const dates = [...new Set(invalid.map(r => r.dayLabel || r.date))].join(", ")
+        toast.error(`${t("validationBisAfterVon")} (${dates})`)
         return
       }
 
       // Update dirty rows in DB
       const dirty = previewRows.filter(r => r.id && (r.vonDirty || r.bisDirty || r.pauseDirty))
       if (dirty.length > 0) {
-        await Promise.all(dirty.map(r =>
+        const results = await Promise.all(dirty.map(r =>
           supabase.from("time_entries").update({
             time_from: r.von.length === 5 ? r.von + ":00" : r.von,
             time_to: r.bis.length === 5 ? r.bis + ":00" : r.bis,
             gross_h: r.brutto,
             net_h: r.netto,
             break_min: r.break_min,
-          }).eq("id", r.id)
+          }).eq("id", r.id).select("id")
         ))
+        const failed = results.filter(res => res.error || !res.data?.length)
+        if (failed.length > 0) {
+          const msg = failed[0].error?.message ?? "Update fehlgeschlagen"
+          toast.error(`${failed.length} Einträge nicht gespeichert: ${msg}`)
+          return
+        }
+        toast.success(`${dirty.length} Einträge aktualisiert`)
       }
 
       // Build taetigkeitOverride (taetigkeit changes are NOT saved to DB)
@@ -481,9 +489,11 @@ export function TaetigkeitsberichtDialog({
 
                     const weekendStyle = row.isWeekend ? "text-muted-foreground bg-muted/30" : ""
                     const dirtyStyle = (row.vonDirty || row.bisDirty || row.pauseDirty) ? "bg-blue-50 dark:bg-blue-950/30" : ""
+                    const isInvalid = !!row.id && !!row.von && !!row.bis && (row.von >= row.bis || calcBrutto(row.von, row.bis) <= 0)
+                    const invalidStyle = isInvalid ? "bg-red-100 dark:bg-red-950/40" : ""
 
                     return (
-                      <tr key={`${row.date}-${i}`} className={`${weekendStyle} ${dirtyStyle}`}>
+                      <tr key={`${row.date}-${i}`} className={`${weekendStyle} ${dirtyStyle} ${invalidStyle}`}>
                         {isFirst && (
                           <td className="border px-1.5 py-0.5 text-center font-medium" rowSpan={rowSpanCount}>
                             {row.weekday}

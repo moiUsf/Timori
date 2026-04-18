@@ -62,7 +62,7 @@
   "dashboard": {
     "title": "لوحة التحكم",
     "hoursThisMonth": "ساعات هذا الشهر",
-    "hoursTarget": "الهدف: {target} ({days} يوم)",
+    "hoursTarget": "الهدف: {target} h ({days} MT)",
     "overtime": "ساعات إضافية",
     "shortfall": "عجز",
     "totalOvertime": "إجمالي الساعات الإضافية",
@@ -74,12 +74,12 @@
     "timersRunning": "{count} مؤقتات تعمل",
     "clientUtilization": "استخدام العملاء {month}",
     "noUtilization": "لا توجد إدخالات أو استخدام محجوز هذا الشهر.",
-    "bookedDaysUnit": "يوم",
-    "hoursOf": "{consumed} من {booked}",
-    "remaining": "{h} متبقية",
-    "overdrawn": "{h} تجاوز",
-    "workedNoUtilization": "{h} مُنجزة — لم يُحدد استخدام",
-    "holidaysThisMonth": "الأعياد هذا الشهر",
+    "bookedDaysUnit": "MT",
+    "hoursOf": "{consumed} h مُنجزة من {booked} h",
+    "remaining": "{h} h - {pct}% متبقية",
+    "overdrawn": "{h} h تجاوز",
+    "workedNoUtilization": "{h} h مُنجزة — لم يُحدد استخدام",
+    "holidaysThisMonth": "الأعياد والإجازات هذا الشهر",
     "noHolidays": "لا توجد أعياد أخرى"
   },
   "time": {
@@ -238,6 +238,7 @@
     "consumed": "المستهلك",
     "periodTotal": "الإجمالي",
     "periodMonthly": "شهري",
+    "periodRange": "فترة",
     "unitH": "س",
     "unitMT": "يع",
     "typeProject": "مشروع",
@@ -247,6 +248,7 @@
     "overdrawn": "{h} تجاوز",
     "hoursOf": "{consumed} / {budget}",
     "dialogTitle": "إضافة بطاقة",
+    "editTitle": "تعديل البطاقة",
     "selectType": "النوع",
     "selectEntity": "اختر...",
     "budgetLabel": "الميزانية",
@@ -257,7 +259,9 @@
     "noCarryOver": "إعادة تعيين شهرياً",
     "defaults": "القيم الافتراضية للبطاقات",
     "defaultsDesc": "القيم المعبأة مسبقاً عند إضافة بطاقات جديدة",
-    "defaultsSaved": "تم حفظ القيم الافتراضية"
+    "defaultsSaved": "تم حفظ القيم الافتراضية",
+    "allClients": "الكل",
+    "noClient": "بدون عميل"
   },
   "clients": {
     "title": "العملاء والمشاريع",

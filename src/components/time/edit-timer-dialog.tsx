@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Save, Plus } from "lucide-react"
+import { Save, Plus, Clock } from "lucide-react"
+import { formatDuration } from "@/lib/utils"
 
 const HOUR_CODES: { value: HourCode; label: string }[] = [
   { value: "BEV", label: "BEV — Beratung verrechenbar" },
@@ -52,6 +53,27 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
   const [newProjectName, setNewProjectName] = useState("")
   const [creatingTask, setCreatingTask] = useState(false)
   const [newTaskName, setNewTaskName] = useState("")
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!open || timer.paused_at) return
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [open, timer.paused_at])
+
+  const elapsedMs = (() => {
+    if (!startedAt) return 0
+    // If user hasn't edited the start time, use the full-precision original
+    // to match the timer in the bar exactly (datetime-local strips seconds).
+    const startIso = startedAt === toDatetimeLocal(timer.started_at)
+      ? timer.started_at
+      : startedAt
+    const start = new Date(startIso).getTime()
+    if (isNaN(start)) return 0
+    const pausedExtra = timer.total_paused_ms ?? 0
+    const end = timer.paused_at ? new Date(timer.paused_at).getTime() : now
+    return Math.max(0, end - start - pausedExtra)
+  })()
 
   // Re-init fields whenever this dialog opens (handles switching between timers)
   useEffect(() => {
@@ -180,7 +202,14 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Timer bearbeiten — {timer.client?.name}</DialogTitle>
+          <DialogTitle className="flex items-center justify-between gap-2">
+            <span>Timer bearbeiten — {timer.client?.name}</span>
+            <span className={`flex items-center gap-1.5 font-mono text-sm tabular-nums ${timer.paused_at ? "text-muted-foreground" : "text-primary"}`}>
+              <Clock className="h-4 w-4" />
+              {formatDuration(elapsedMs)}
+              {timer.paused_at && <span className="text-xs font-sans normal-case">(pausiert)</span>}
+            </span>
+          </DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2">
 

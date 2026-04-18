@@ -49,7 +49,7 @@ export default function ClientsPage() {
   const [editingBooking, setEditingBooking] = useState<BookingItem | null>(null)
   const [selectedClientId, setSelectedClientId] = useState("")
 
-  const [clientForm, setClientForm] = useState({ name: "", client_nr: "", country: "DE", default_remote: false })
+  const [clientForm, setClientForm] = useState({ name: "", client_nr: "", country: "DE", default_remote: false, monthly_booked_days: "" })
   const [projectForm, setProjectForm] = useState({ name: "", project_nr: "", sub_project: "", category: "", hourly_rate: "" })
   const [taskForm, setTaskForm] = useState({ name: "", description: "", project_id: "", client_id: "", default_booking_item_id: "" })
   const [bookingForm, setBookingForm] = useState({ name: "", description: "", client_id: "" })
@@ -158,15 +158,22 @@ export default function ClientsPage() {
 
   async function saveClient() {
     if (!clientForm.name.trim()) { toast.error("Name erforderlich"); return }
+    const payload = {
+      name: clientForm.name,
+      client_nr: clientForm.client_nr,
+      country: clientForm.country,
+      default_remote: clientForm.default_remote,
+      monthly_booked_days: clientForm.monthly_booked_days !== "" ? parseFloat(clientForm.monthly_booked_days) : null,
+    }
     if (editingClient) {
-      await supabase.from("clients").update(clientForm).eq("id", editingClient.id)
+      await supabase.from("clients").update(payload).eq("id", editingClient.id)
       toast.success("Kunde aktualisiert")
     } else {
-      await supabase.from("clients").insert({ ...clientForm, user_id: userId })
+      await supabase.from("clients").insert({ ...payload, user_id: userId })
       toast.success("Kunde erstellt")
     }
     setClientDialog(false); setEditingClient(null)
-    setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false })
+    setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false, monthly_booked_days: "" })
     loadClients(userId)
   }
 
@@ -391,11 +398,11 @@ export default function ClientsPage() {
                 (c.client_nr ?? "").toLowerCase().includes(clientSearch.toLowerCase())
               ).map((client) => (
                 <Card key={client.id}>
-                  <div className="flex items-center gap-3 p-4 cursor-pointer select-none" onClick={() => toggleClient(client.id)}>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4 cursor-pointer select-none" onClick={() => toggleClient(client.id)}>
                     {expanded.has(client.id)
                       ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                       : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                    <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="font-medium">{client.name}</span>
                       {client.client_nr && <span className="text-xs text-muted-foreground">{client.client_nr}</span>}
                       <Badge variant={client.active ? "success" : "secondary"} className="text-xs">
@@ -405,7 +412,7 @@ export default function ClientsPage() {
                         <Badge variant="outline" className="text-xs">Remote</Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 w-full justify-end sm:w-auto" onClick={(e) => e.stopPropagation()}>
                       <Switch checked={client.active}
                         onCheckedChange={async () => {
                           await supabase.from("clients").update({ active: !client.active }).eq("id", client.id)
@@ -417,12 +424,12 @@ export default function ClientsPage() {
                           setBookingForm({ name: "", description: "", client_id: client.id })
                           setEditingBooking(null); setBookingDialog(true)
                         }}>
-                        <Plus className="h-3 w-3" />Buchungsposten
+                        <Plus className="h-3 w-3" /><span className="hidden sm:inline">Buchungsposten</span>
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8"
                         onClick={() => {
                           setEditingClient(client)
-                          setClientForm({ name: client.name, client_nr: client.client_nr ?? "", country: client.country, default_remote: client.default_remote ?? false })
+                          setClientForm({ name: client.name, client_nr: client.client_nr ?? "", country: client.country, default_remote: client.default_remote ?? false, monthly_booked_days: client.monthly_booked_days != null ? String(client.monthly_booked_days) : "" })
                           setClientDialog(true)
                         }}>
                         <Pencil className="h-4 w-4" />
@@ -774,6 +781,17 @@ export default function ClientsPage() {
                 <p className="text-xs text-muted-foreground">Wird bei der Zeiterfassung vorausgefüllt</p>
               </div>
               <Switch checked={clientForm.default_remote} onCheckedChange={(v) => setClientForm({ ...clientForm, default_remote: v })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Kundenauslastung Budget (MT/Monat)</Label>
+              <Input
+                type="number"
+                step="0.5"
+                min="0"
+                placeholder="Optional"
+                value={clientForm.monthly_booked_days}
+                onChange={(e) => setClientForm({ ...clientForm, monthly_booked_days: e.target.value })}
+              />
             </div>
           </div>
           <DialogFooter className="flex-row justify-between sm:justify-between">

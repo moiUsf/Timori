@@ -62,7 +62,7 @@
   "dashboard": {
     "title": "Tableau de bord",
     "hoursThisMonth": "Heures ce mois",
-    "hoursTarget": "Objectif : {target} ({days} j)",
+    "hoursTarget": "Objectif : {target} h ({days} MT)",
     "overtime": "Heures sup.",
     "shortfall": "Déficit",
     "totalOvertime": "Total heures sup.",
@@ -74,12 +74,12 @@
     "timersRunning": "{count} minuteries en cours",
     "clientUtilization": "Utilisation clients {month}",
     "noUtilization": "Aucune entrée ou utilisation réservée ce mois.",
-    "bookedDaysUnit": "j",
-    "hoursOf": "{consumed} sur {booked}",
-    "remaining": "{h} restant",
-    "overdrawn": "{h} dépassé",
-    "workedNoUtilization": "{h} travaillées — aucune utilisation définie",
-    "holidaysThisMonth": "Jours fériés ce mois",
+    "bookedDaysUnit": "MT",
+    "hoursOf": "{consumed} h effectuées sur {booked} h",
+    "remaining": "{h} h - {pct}% restant",
+    "overdrawn": "{h} h dépassé",
+    "workedNoUtilization": "{h} h travaillées — aucune utilisation définie",
+    "holidaysThisMonth": "Jours fériés et congés ce mois",
     "noHolidays": "Aucun jour férié"
   },
   "time": {
@@ -269,6 +269,7 @@
     "consumed": "Consommé",
     "periodTotal": "Total",
     "periodMonthly": "Mensuel",
+    "periodRange": "Période",
     "unitH": "h",
     "unitMT": "JH",
     "typeProject": "Projet",
@@ -278,6 +279,7 @@
     "overdrawn": "{h} dépassé",
     "hoursOf": "{consumed} / {budget}",
     "dialogTitle": "Ajouter une tuile",
+    "editTitle": "Modifier la tuile",
     "selectType": "Type",
     "selectEntity": "Sélectionner...",
     "budgetLabel": "Budget",
@@ -288,6 +290,8 @@
     "noCarryOver": "Réinitialiser par mois",
     "defaults": "Valeurs par défaut",
     "defaultsDesc": "Valeurs pré-remplies lors de l'ajout de nouvelles tuiles",
-    "defaultsSaved": "Valeurs par défaut enregistrées"
+    "defaultsSaved": "Valeurs par défaut enregistrées",
+    "allClients": "Tous",
+    "noClient": "Sans client"
   }
 }

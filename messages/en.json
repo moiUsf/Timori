@@ -62,7 +62,7 @@
   "dashboard": {
     "title": "Dashboard",
     "hoursThisMonth": "Hours This Month",
-    "hoursTarget": "Target: {target} ({days} days)",
+    "hoursTarget": "Target: {target} h ({days} MT)",
     "overtime": "Overtime",
     "shortfall": "Shortfall",
     "totalOvertime": "Total Overtime",
@@ -74,12 +74,12 @@
     "timersRunning": "{count} timers running",
     "clientUtilization": "Client Utilization {month}",
     "noUtilization": "No entries or booked utilization this month.",
-    "bookedDaysUnit": "days",
-    "hoursOf": "{consumed} of {booked}",
-    "remaining": "{h} remaining",
-    "overdrawn": "{h} overdrawn",
-    "workedNoUtilization": "{h} worked — no utilization set",
-    "holidaysThisMonth": "Holidays This Month",
+    "bookedDaysUnit": "MT",
+    "hoursOf": "{consumed} h worked of {booked} h",
+    "remaining": "{h} h - {pct}% remaining",
+    "overdrawn": "{h} h overdrawn",
+    "workedNoUtilization": "{h} h worked — no utilization set",
+    "holidaysThisMonth": "Holidays and Vacation This Month",
     "noHolidays": "No more holidays"
   },
   "time": {
@@ -269,6 +269,7 @@
     "consumed": "Consumed",
     "periodTotal": "Total",
     "periodMonthly": "Monthly",
+    "periodRange": "Date Range",
     "unitH": "h",
     "unitMT": "MD",
     "typeProject": "Project",
@@ -278,6 +279,7 @@
     "overdrawn": "{h} overdrawn",
     "hoursOf": "{consumed} / {budget}",
     "dialogTitle": "Add Tile",
+    "editTitle": "Edit Tile",
     "selectType": "Type",
     "selectEntity": "Select entry...",
     "budgetLabel": "Budget",
@@ -288,6 +290,8 @@
     "noCarryOver": "Reset Monthly",
     "defaults": "Tile Defaults",
     "defaultsDesc": "Pre-filled values when adding new tiles",
-    "defaultsSaved": "Defaults saved"
+    "defaultsSaved": "Defaults saved",
+    "allClients": "All",
+    "noClient": "No Client"
   }
 }
