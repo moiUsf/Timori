@@ -409,7 +409,7 @@ export default function ClientsPage() {
                         {client.active ? "Aktiv" : "Inaktiv"}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-2 w-full justify-end sm:w-auto" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 w-full pl-7 sm:pl-0 sm:w-auto sm:ml-auto" onClick={(e) => e.stopPropagation()}>
                       {client.default_remote && (
                         <Badge variant="outline" className="text-xs">Remote</Badge>
                       )}
