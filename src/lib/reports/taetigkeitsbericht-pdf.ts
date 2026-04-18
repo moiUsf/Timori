@@ -213,7 +213,7 @@ export function generatePDF(data: ReportData, labels: PdfLabels = DEFAULT_PDF_LA
   doc.text(`${labels.remarks}: _______________________`, marginL + 80, sigY)
   sigY += 12
   doc.text(`${labels.signatureContractor}: _______________________`, marginL, sigY)
-  doc.text(`${labels.signatureClient}: _______________________`, marginL + 100, sigY)
+  doc.text(`${labels.signatureClient}: _______________________`, marginL + 80, sigY)
 
   return doc.output("blob")
 }

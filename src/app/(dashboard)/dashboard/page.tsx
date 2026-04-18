@@ -5,17 +5,15 @@ import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Clock, Umbrella, TrendingUp, CalendarDays, Pencil, Check, Download, X } from "lucide-react"
+import { Clock, Umbrella, TrendingUp, CalendarDays, Pencil, Check, Download, X, Palmtree } from "lucide-react"
 import { formatHours, formatMonthYear } from "@/lib/utils"
 import { getHolidays } from "@/lib/holidays"
 import type { GermanState } from "@/lib/holidays"
-import type { Client, UserProfile } from "@/types/database"
+import type { Client, UserProfile, VacationEntry } from "@/types/database"
 import { isBackupDue, downloadBlob } from "@/lib/backup-idb"
 
-type ClientWithBooking = Client & { monthly_booked_days: number }
-
 type ClientStat = {
-  client: ClientWithBooking
+  client: Client
   consumed_h: number
   booked_h: number
   remaining_h: number
@@ -35,6 +33,7 @@ function countWorkingDays(year: number, month: number): number {
 export default function DashboardPage() {
   const supabase = createClient()
   const t = useTranslations("dashboard")
+  const tVac = useTranslations("vacation")
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth() + 1
@@ -49,6 +48,7 @@ export default function DashboardPage() {
   const [totalVacationTaken, setTotalVacationTaken] = useState(0)
   const [totalOvertime, setTotalOvertime] = useState(0)
   const [upcomingHolidays, setUpcomingHolidays] = useState<{ date: string; name: string }[]>([])
+  const [vacationThisMonth, setVacationThisMonth] = useState<VacationEntry[]>([])
   const [userId, setUserId] = useState("")
   const [editingClientId, setEditingClientId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState("")
@@ -60,7 +60,7 @@ export default function DashboardPage() {
       supabase.from("users_profile").select("*").eq("user_id", uid).single(),
       supabase.from("time_entries").select("net_h, client_id").eq("user_id", uid)
         .gte("date", startOfMonth).lte("date", endOfMonth),
-      supabase.from("vacation_entries").select("days, type").eq("user_id", uid)
+      supabase.from("vacation_entries").select("*").eq("user_id", uid)
         .gte("date_from", `${year}-01-01`).lte("date_to", `${year}-12-31`),
       supabase.from("active_timers").select("id").eq("user_id", uid),
       supabase.from("overtime_records").select("buildup_h, reduction_h, carryover_h")
@@ -72,7 +72,7 @@ export default function DashboardPage() {
     const entries = entriesRes.data ?? []
     const vacations = vacationRes.data ?? []
     const overtimeMonths = overtimeRes.data ?? []
-    const clients = (clientsRes.data ?? []) as ClientWithBooking[]
+    const clients = (clientsRes.data ?? []) as Client[]
     const hoursPerDay = prof?.working_hours_per_day ?? 8
 
     setProfile(prof)
@@ -84,6 +84,10 @@ export default function DashboardPage() {
     const vacTaken = vacations.filter(v => v.type === "annual").reduce((s, v) => s + v.days, 0)
     setTotalVacationTaken(vacTaken)
     setVacationRemaining((prof?.vacation_quota ?? 30) - vacTaken)
+    setVacationThisMonth(
+      (vacations as VacationEntry[]).filter(v => v.date_from <= endOfMonth && v.date_to >= startOfMonth)
+        .sort((a, b) => a.date_from.localeCompare(b.date_from))
+    )
 
     const ot = overtimeMonths.reduce((s, m) => s + m.buildup_h - m.reduction_h, 0) + (overtimeMonths[0]?.carryover_h ?? 0)
     setTotalOvertime(ot)
@@ -107,10 +111,11 @@ export default function DashboardPage() {
     setClientStats(stats)
 
     const holidays = getHolidays(year, (prof?.federal_state ?? "DE-NW") as GermanState)
-    const upcoming = holidays
-      .filter(h => { const d = new Date(h.date); return d >= now && d.getMonth() + 1 === month })
-      .slice(0, 3)
-    setUpcomingHolidays(upcoming)
+    const monthHolidays = holidays.filter(h => {
+      const d = new Date(h.date)
+      return d.getMonth() + 1 === month && d.getFullYear() === year
+    })
+    setUpcomingHolidays(monthHolidays)
   }, [supabase, startOfMonth, endOfMonth, year])
 
   useEffect(() => {
@@ -180,9 +185,18 @@ export default function DashboardPage() {
   const overtimeDiff = totalNetHours - targetHours
 
   function barColor(pct: number) {
-    if (pct >= 100) return "bg-red-500"
-    if (pct >= 75) return "bg-amber-400"
+    if (pct >= 90) return "bg-red-500"
+    if (pct >= 70) return "bg-amber-400"
     return "bg-primary"
+  }
+
+  const todayStr = `${year}-${month.toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`
+
+  const vacTypeLabel: Record<string, string> = {
+    annual: tVac("types.annual"),
+    special: tVac("types.special"),
+    training: tVac("types.training"),
+    illness: tVac("types.illness"),
   }
 
   return (
@@ -329,7 +343,7 @@ export default function DashboardPage() {
                       <span>{t("hoursOf", { consumed: formatHours(consumed_h), booked: formatHours(booked_h) })}</span>
                       <span className={remaining_h < 0 ? "text-red-600 font-medium" : remaining_h === 0 ? "text-amber-600 font-medium" : ""}>
                         {remaining_h >= 0
-                          ? t("remaining", { h: formatHours(remaining_h) })
+                          ? t("remaining", { h: formatHours(remaining_h), pct: Math.round(Math.max(0, 100 - pct)) })
                           : t("overdrawn", { h: formatHours(Math.abs(remaining_h)) })}
                       </span>
                     </div>
@@ -344,7 +358,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Upcoming holidays */}
+        {/* Upcoming holidays + vacation */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -352,19 +366,44 @@ export default function DashboardPage() {
               {t("holidaysThisMonth")}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             {upcomingHolidays.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("noHolidays")}</p>
             ) : (
               <div className="space-y-2">
-                {upcomingHolidays.map((h) => (
-                  <div key={h.date} className="flex items-center justify-between">
-                    <span className="text-sm">{h.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(h.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
-                    </span>
-                  </div>
-                ))}
+                {upcomingHolidays.map((h) => {
+                  const past = h.date < todayStr
+                  return (
+                    <div key={h.date} className={`flex items-center justify-between ${past ? "opacity-40" : ""}`}>
+                      <span className="text-sm">{h.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(h.date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {vacationThisMonth.length > 0 && (
+              <div className="border-t pt-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Palmtree className="h-3.5 w-3.5" />
+                  {tVac("title")}
+                </p>
+                {vacationThisMonth.map((v) => {
+                  const past = v.date_to < todayStr
+                  const from = v.date_from.slice(5).split("-").reverse().join(".")
+                  const to = v.date_to.slice(5).split("-").reverse().join(".")
+                  return (
+                    <div key={v.id} className={`flex items-center justify-between ${past ? "opacity-40" : ""}`}>
+                      <span className="text-sm">{vacTypeLabel[v.type] ?? v.type}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {from === to ? from : `${from} – ${to}`} · {v.days} {tVac("workdays")}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </CardContent>

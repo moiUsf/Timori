@@ -7,8 +7,12 @@ export interface UtilizationTile {
   entity_name: string    // denormalized display name
   budget_h: number       // always stored in hours internally
   budget_unit: "h" | "MT"
-  period: "total" | "monthly"
+  period: "total" | "monthly" | "range"
   carry_over?: boolean   // monthly only: carry unused budget to next month
+  date_from?: string     // range only: YYYY-MM-DD
+  date_to?: string       // range only: YYYY-MM-DD
+  client_name?: string   // denormalized client name for grouping
+  client_id?: string     // stored to pre-fill client dropdown on edit
 }
 export type TaetigkeitField = "booking_item" | "task" | "description" | "project"
 
@@ -53,6 +57,7 @@ export interface Client {
   country: string
   active: boolean
   default_remote: boolean
+  monthly_booked_days: number | null
   created_at: string
 }
 

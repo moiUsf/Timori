@@ -761,7 +761,14 @@ export default function TimePage() {
                     <span>{t("gross")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to))}</strong></span>
                   </span>
                 )}
-                <div className="flex gap-2 ml-auto">
+                <div className="flex gap-2 ml-auto items-center">
+                  {editingEntry && (
+                    <Button type="button" variant="outline" className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 mr-8"
+                      onClick={() => { handleDelete(editingEntry.id); setShowForm(false); setEditingEntry(null) }}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {tCommon("delete")}
+                    </Button>
+                  )}
                   <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingEntry(null) }}>{tCommon("cancel")}</Button>
                   <Button type="submit">{editingEntry ? tCommon("update") : tCommon("save")}</Button>
                 </div>
@@ -903,7 +910,7 @@ export default function TimePage() {
                     </div>
                     <div className="divide-y">
                       {group.entries.map((entry, entryIdx) => (
-                        <div key={entry.id} className={cn("group transition-colors hover:bg-muted/30 cursor-pointer", entryIdx % 2 === 1 ? "bg-[#fafafa] dark:bg-muted/10" : "")} onClick={() => openEdit(entry)}>
+                        <div key={entry.id} className={cn("group transition-colors hover:bg-muted cursor-pointer", entryIdx % 2 === 1 ? "bg-[#fafafa] dark:bg-muted/10" : "")} onClick={() => openEdit(entry)}>
                           {/* Mobile layout */}
                           <div className="lg:hidden px-4 py-3">
                             {/* Row 1: short date · time range · hours */}

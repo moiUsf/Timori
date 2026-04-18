@@ -147,10 +147,10 @@ export async function generateExcel(data: ReportData): Promise<Blob> {
 
   // ── Signature area ───────────────────────────────────────
   ws.getRow(rowNum).getCell(1).value = "Kostenstelle: _______________________"
-  ws.getRow(rowNum).getCell(5).value = "Bemerkungen: _______________________"
+  ws.getRow(rowNum).getCell(6).value = "Bemerkungen: _______________________"
   rowNum += 2
   ws.getRow(rowNum).getCell(1).value = "Unterschrift Auftragnehmer: _______________________"
-  ws.getRow(rowNum).getCell(5).value = "Unterschrift Kunde: _______________________"
+  ws.getRow(rowNum).getCell(6).value = "Unterschrift Kunde: _______________________"
 
   const buffer = await wb.xlsx.writeBuffer()
   return new Blob([buffer], {
