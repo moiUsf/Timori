@@ -754,22 +754,22 @@ export default function TimePage() {
               </div>
 
               {/* Footer: Netto/Brutto + buttons */}
-              <div className="flex justify-between items-center pt-1">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 pt-1">
                 {form.time_from && form.time_to && (
                   <span className="text-sm text-muted-foreground flex flex-col gap-0.5">
                     <span>{t("net")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to, parseInt(form.break_min || "0")))}</strong></span>
                     <span>{t("gross")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to))}</strong></span>
                   </span>
                 )}
-                <div className="flex gap-2 ml-auto items-center">
+                <div className="flex flex-wrap gap-2 md:ml-auto items-center">
                   {editingEntry && (
-                    <Button type="button" variant="outline" className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 mr-8"
+                    <Button type="button" variant="outline" className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 md:mr-8"
                       onClick={() => { handleDelete(editingEntry.id); setShowForm(false); setEditingEntry(null) }}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       {tCommon("delete")}
                     </Button>
                   )}
-                  <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingEntry(null) }}>{tCommon("cancel")}</Button>
+                  <Button type="button" variant="outline" className="ml-auto md:ml-0" onClick={() => { setShowForm(false); setEditingEntry(null) }}>{tCommon("cancel")}</Button>
                   <Button type="submit">{editingEntry ? tCommon("update") : tCommon("save")}</Button>
                 </div>
               </div>
