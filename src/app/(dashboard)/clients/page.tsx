@@ -408,11 +408,11 @@ export default function ClientsPage() {
                       <Badge variant={client.active ? "success" : "secondary"} className="text-xs">
                         {client.active ? "Aktiv" : "Inaktiv"}
                       </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 w-full justify-end sm:w-auto" onClick={(e) => e.stopPropagation()}>
                       {client.default_remote && (
                         <Badge variant="outline" className="text-xs">Remote</Badge>
                       )}
-                    </div>
-                    <div className="flex items-center gap-2 w-full justify-end sm:w-auto" onClick={(e) => e.stopPropagation()}>
                       <Switch checked={client.active}
                         onCheckedChange={async () => {
                           await supabase.from("clients").update({ active: !client.active }).eq("id", client.id)
@@ -424,7 +424,7 @@ export default function ClientsPage() {
                           setBookingForm({ name: "", description: "", client_id: client.id })
                           setEditingBooking(null); setBookingDialog(true)
                         }}>
-                        <Plus className="h-3 w-3" /><span className="hidden sm:inline">Buchungsposten</span>
+                        <Plus className="h-3 w-3" />Buchungsposten
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8"
                         onClick={() => {
