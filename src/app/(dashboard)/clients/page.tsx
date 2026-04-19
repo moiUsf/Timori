@@ -296,13 +296,13 @@ export default function ClientsPage() {
           <Button variant="outline" onClick={() => {
             setTaskForm({ name: "", description: "", project_id: "", client_id: "", default_booking_item_id: "" })
             setEditingTask(null); setTaskDialog(true)
-          }} className="gap-2">
+          }} className="gap-2 flex-1 sm:flex-none">
             <Plus className="h-4 w-4" />Aufgabe
           </Button>
           <Button variant="outline" onClick={() => {
             setBookingForm({ name: "", description: "", client_id: "" })
             setEditingBooking(null); setBookingDialog(true)
-          }} className="gap-2">
+          }} className="gap-2 flex-1 sm:flex-none">
             <Plus className="h-4 w-4" />Buchungsposten
           </Button>
           <Button onClick={() => {
