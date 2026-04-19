@@ -48,7 +48,7 @@ export async function generateExcel(data: ReportData): Promise<Blob> {
   ws.mergeCells(1, 6, 1, COLS)
   const monthCell = ws.getRow(1).getCell(6)
   monthCell.value = data.monatLabel
-  monthCell.font = { size: 12, bold: true }
+  monthCell.font = { size: 14, bold: true }
   monthCell.alignment = { horizontal: "right" }
 
   // Row 3 empty
