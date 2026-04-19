@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Menu, Clock } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Sidebar } from "./sidebar"
 import { ActiveTimersBar } from "@/components/time/active-timers-bar"
@@ -9,6 +10,9 @@ import { TimerDisplayProvider } from "@/lib/timer-display-context"
 import { isBackupDue, downloadBlob, loadHandleFromIDB, writeToFolder } from "@/lib/backup-idb"
 import type { UserProfile } from "@/types/database"
 import type { User } from "@supabase/supabase-js"
+
+const PENDING_KEY = "backupPendingSince"
+const FALLBACK_AFTER_MS = 30 * 60 * 1000
 
 export function DashboardShell({
   user,
@@ -21,41 +25,112 @@ export function DashboardShell({
 }) {
   const [open, setOpen] = useState(false)
   const backupInProgress = useRef(false)
+  const pendingToastShown = useRef(false)
 
   useEffect(() => {
+    function makeFilename(now: Date): string {
+      const pad = (n: number) => String(n).padStart(2, "0")
+      const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
+      return `timori-backup-${ts}.json`
+    }
+
+    async function fetchBlob(): Promise<Blob | null> {
+      const res = await fetch("/api/backup/export")
+      if (!res.ok) return null
+      const json = await res.json()
+      return new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
+    }
+
+    function markDone() {
+      localStorage.setItem("lastBackupAt", new Date().toISOString())
+      localStorage.removeItem(PENDING_KEY)
+      pendingToastShown.current = false
+      toast.dismiss("backup-pending")
+      window.dispatchEvent(new CustomEvent("timori:backup-done"))
+    }
+
     async function checkAndBackup() {
       if (backupInProgress.current) return
       const schedule = (localStorage.getItem("backupSchedule") ?? "never") as "never"|"daily"|"weekly"|"monthly"
       const last = localStorage.getItem("lastBackupAt")
       const time = localStorage.getItem("backupTime") ?? "02:00"
-      if (!isBackupDue(schedule, last, time)) return
+      if (!isBackupDue(schedule, last, time)) {
+        localStorage.removeItem(PENDING_KEY)
+        pendingToastShown.current = false
+        toast.dismiss("backup-pending")
+        return
+      }
 
       backupInProgress.current = true
       try {
-        const res = await fetch("/api/backup/export")
-        if (!res.ok) return
-        const json = await res.json()
-        const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
-        const now = new Date()
-        const pad = (n: number) => String(n).padStart(2, "0")
-        const ts = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`
-        const filename = `timori-backup-${ts}.json`
-
         const handle = await loadHandleFromIDB()
-        if (handle) {
-          // Folder configured — only write there, never download
-          const saved = await writeToFolder(handle, blob, filename)
-          if (!saved) return  // permission lapsed; skip — reminder stays visible
-        } else {
-          // No folder configured — fall back to download
+        const now = new Date()
+        const filename = makeFilename(now)
+
+        if (!handle) {
+          const blob = await fetchBlob()
+          if (!blob) return
           downloadBlob(blob, filename)
+          markDone()
+          return
         }
 
-        localStorage.setItem("lastBackupAt", now.toISOString())
-        // Notify dashboard reminder to hide if visible
-        window.dispatchEvent(new CustomEvent("timori:backup-done"))
+        // Folder configured — try to write there first
+        const blob = await fetchBlob()
+        if (!blob) return
+        const saved = await writeToFolder(handle, blob, filename)
+        if (saved) { markDone(); return }
+
+        // Permission not granted — prompt user, fall back to download after 30 min
+        const pendingRaw = localStorage.getItem(PENDING_KEY)
+        const pendingMs = pendingRaw ? Number(pendingRaw) : null
+        const nowMs = now.getTime()
+
+        if (pendingMs && nowMs - pendingMs > FALLBACK_AFTER_MS) {
+          downloadBlob(blob, filename)
+          markDone()
+          toast.info("Backup als Download gespeichert (Ordnerzugriff nicht bestätigt)")
+          return
+        }
+
+        if (!pendingMs) {
+          localStorage.setItem(PENDING_KEY, String(nowMs))
+        }
+        if (!pendingToastShown.current) {
+          pendingToastShown.current = true
+          toast("Backup fällig — Ordnerzugriff erneut bestätigen?", {
+            id: "backup-pending",
+            duration: Infinity,
+            action: {
+              label: "Zugriff gewähren",
+              onClick: async () => {
+                try {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const h = handle as any
+                  const perm = await h.requestPermission?.({ mode: "readwrite" }) ?? "denied"
+                  if (perm !== "granted") {
+                    toast.error("Zugriff verweigert")
+                    return
+                  }
+                  const freshBlob = await fetchBlob()
+                  if (!freshBlob) { toast.error("Backup-Export fehlgeschlagen"); return }
+                  const freshName = makeFilename(new Date())
+                  const ok = await writeToFolder(handle, freshBlob, freshName)
+                  if (ok) {
+                    markDone()
+                    toast.success("Backup gespeichert")
+                  } else {
+                    toast.error("Backup fehlgeschlagen")
+                  }
+                } catch {
+                  toast.error("Backup fehlgeschlagen")
+                }
+              },
+            },
+          })
+        }
       } catch {
-        // silent — dashboard reminder will still show on next login
+        // silent — reminder stays visible
       } finally {
         backupInProgress.current = false
       }

@@ -155,6 +155,9 @@ export function generatePDF(data: ReportData, labels: PdfLabels = DEFAULT_PDF_LA
   // ── Gesamt-Zeile unter Haupttabelle ─────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mainTableEndY = (doc as any).lastAutoTable.finalY
+  // Grauer Hintergrund
+  doc.setFillColor(220, 220, 220)
+  doc.rect(marginL, mainTableEndY + 2, 184 - marginL, 6, "F")
   // Trennlinie
   doc.setDrawColor(0)
   doc.setLineWidth(0.4)
@@ -162,8 +165,8 @@ export function generatePDF(data: ReportData, labels: PdfLabels = DEFAULT_PDF_LA
   // Label + Wert
   doc.setFont("helvetica", "bold")
   doc.setFontSize(7.5)
-  doc.text("Gesamt:", marginL, mainTableEndY + 7)
-  doc.text(fh(data.gesamtNetto), 184, mainTableEndY + 7, { align: "right" })
+  doc.text("Gesamt", marginL + 1, mainTableEndY + 6)
+  doc.text(fh(data.gesamtNetto), 183, mainTableEndY + 6, { align: "right" })
   doc.setFont("helvetica", "normal")
 
   // ── Buchungskonten Übersicht ─────────────────────────────
@@ -178,10 +181,7 @@ export function generatePDF(data: ReportData, labels: PdfLabels = DEFAULT_PDF_LA
   doc.setFont("helvetica", "bold")
   doc.text(labels.bookingOverview, marginL, afterTable)
 
-  const kontoBody = [
-    ...data.buchungskonten.map(k => [k.label, `${fh(k.stunden)} h`]),
-    [labels.total, `${fh(data.gesamtNetto)} h`],
-  ]
+  const kontoBody = data.buchungskonten.map(k => [k.label, `${fh(k.stunden)} h`])
 
   autoTable(doc, {
     startY: afterTable + 4,
@@ -191,17 +191,26 @@ export function generatePDF(data: ReportData, labels: PdfLabels = DEFAULT_PDF_LA
       0: { cellWidth: 148 },
       1: { cellWidth: 26, halign: "right" },
     },
-    didParseCell: (hookData) => {
-      if (hookData.row.index === kontoBody.length - 1) {
-        hookData.cell.styles.fontStyle = "bold"
-      }
-    },
     margin: { left: marginL, right: marginR },
   })
 
-  // ── Signature area ───────────────────────────────────────
+  // Buchungskonten-Gesamt-Zeile (identisch zur Haupt-Gesamt-Zeile)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let sigY = (doc as any).lastAutoTable.finalY + 10
+  const kontoEndY = (doc as any).lastAutoTable.finalY
+  const kontoRight = marginL + 174
+  doc.setFillColor(220, 220, 220)
+  doc.rect(marginL, kontoEndY + 2, 174, 6, "F")
+  doc.setDrawColor(0)
+  doc.setLineWidth(0.4)
+  doc.line(marginL, kontoEndY + 2, kontoRight, kontoEndY + 2)
+  doc.setFont("helvetica", "bold")
+  doc.setFontSize(7.5)
+  doc.text("Gesamt", marginL + 1, kontoEndY + 6)
+  doc.text(`${fh(data.gesamtNetto)} h`, kontoRight - 1, kontoEndY + 6, { align: "right" })
+  doc.setFont("helvetica", "normal")
+
+  // ── Signature area ───────────────────────────────────────
+  let sigY = kontoEndY + 18
   if (pageH - sigY < 25) {
     doc.addPage()
     sigY = 15
