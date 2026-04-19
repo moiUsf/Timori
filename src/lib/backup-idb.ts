@@ -76,20 +76,20 @@ export function isBackupDue(
 ): boolean {
   if (schedule === "never") return false
 
-  // Check whether today's scheduled time has already passed
+  // Reference = most recent past scheduled slot (today's if already passed, else yesterday's).
+  // This catches missed backups: if the user opens before today's slot but yesterday's was missed, still triggers.
   const [bh, bm] = backupTime.split(":").map(Number)
   const now = new Date()
-  const scheduledToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), bh, bm, 0, 0)
-  if (now < scheduledToday) return false  // not yet time today
+  const lastSlot = new Date(now.getFullYear(), now.getMonth(), now.getDate(), bh, bm, 0, 0)
+  if (now < lastSlot) lastSlot.setDate(lastSlot.getDate() - 1)
 
   if (!lastBackupAt) return true
 
   const lastMs = new Date(lastBackupAt).getTime()
-  const scheduledTodayMs = scheduledToday.getTime()
+  const lastSlotMs = lastSlot.getTime()
 
-  // Due if the last backup happened before the current scheduled slot
-  if (schedule === "daily") return lastMs < scheduledTodayMs
-  if (schedule === "weekly") return scheduledTodayMs - lastMs >= 7 * 86_400_000
-  if (schedule === "monthly") return scheduledTodayMs - lastMs >= 30 * 86_400_000
+  if (schedule === "daily") return lastMs < lastSlotMs
+  if (schedule === "weekly") return lastSlotMs - lastMs >= 7 * 86_400_000
+  if (schedule === "monthly") return lastSlotMs - lastMs >= 30 * 86_400_000
   return false
 }
