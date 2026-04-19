@@ -309,7 +309,7 @@ export default function ClientsPage() {
             setEditingClient(null)
             setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false, monthly_booked_days: "" })
             setClientDialog(true)
-          }} className="gap-2">
+          }} className="gap-2 order-first w-full sm:order-none sm:w-auto">
             <Plus className="h-4 w-4" />Neuer Kunde
           </Button>
         </div>
