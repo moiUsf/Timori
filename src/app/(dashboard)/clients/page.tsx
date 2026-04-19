@@ -20,6 +20,7 @@ type TaskWithProject = Task & { project?: { name: string; client_id?: string } |
 export default function ClientsPage() {
   const supabase = createClient()
   const [userId, setUserId] = useState("")
+  const [hoursPerDay, setHoursPerDay] = useState(8)
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Record<string, Project[]>>({})
   const [projectTasks, setProjectTasks] = useState<Record<string, Task[]>>({})
@@ -49,7 +50,18 @@ export default function ClientsPage() {
   const [editingBooking, setEditingBooking] = useState<BookingItem | null>(null)
   const [selectedClientId, setSelectedClientId] = useState("")
 
-  const [clientForm, setClientForm] = useState({ name: "", client_nr: "", country: "DE", default_remote: false, monthly_booked_days: "" })
+  const [clientForm, setClientForm] = useState({
+    name: "",
+    client_nr: "",
+    country: "DE",
+    default_remote: false,
+    budget_value: "",
+    budget_unit: "MT" as "h" | "MT",
+    budget_period: "monthly" as "total" | "monthly" | "range",
+    budget_carry_over: false,
+    budget_date_from: "",
+    budget_date_to: "",
+  })
   const [projectForm, setProjectForm] = useState({ name: "", project_nr: "", sub_project: "", category: "", hourly_rate: "" })
   const [taskForm, setTaskForm] = useState({ name: "", description: "", project_id: "", client_id: "", default_booking_item_id: "" })
   const [bookingForm, setBookingForm] = useState({ name: "", description: "", client_id: "" })
@@ -77,6 +89,8 @@ export default function ClientsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setUserId(user.id)
+        supabase.from("users_profile").select("working_hours_per_day").eq("user_id", user.id).single()
+          .then(({ data }) => setHoursPerDay(data?.working_hours_per_day ?? 8))
         loadClients(user.id)
         loadAllTasks(user.id)
         loadAllBookings(user.id)
@@ -158,12 +172,28 @@ export default function ClientsPage() {
 
   async function saveClient() {
     if (!clientForm.name.trim()) { toast.error("Name erforderlich"); return }
+    const raw = clientForm.budget_value !== "" ? parseFloat(clientForm.budget_value) : NaN
+    const hasBudget = !isNaN(raw) && raw > 0
+    if (clientForm.budget_period === "range" && hasBudget) {
+      if (!clientForm.budget_date_from || !clientForm.budget_date_to ||
+          clientForm.budget_date_from > clientForm.budget_date_to) {
+        toast.error("Bitte gültigen Zeitraum auswählen"); return
+      }
+    }
+    const budget_h = hasBudget
+      ? (clientForm.budget_unit === "MT" ? raw * hoursPerDay : raw)
+      : null
     const payload = {
       name: clientForm.name,
       client_nr: clientForm.client_nr,
       country: clientForm.country,
       default_remote: clientForm.default_remote,
-      monthly_booked_days: clientForm.monthly_booked_days !== "" ? parseFloat(clientForm.monthly_booked_days) : null,
+      budget_h,
+      budget_unit: hasBudget ? clientForm.budget_unit : null,
+      budget_period: hasBudget ? clientForm.budget_period : null,
+      budget_carry_over: hasBudget && clientForm.budget_period === "monthly" ? clientForm.budget_carry_over : null,
+      budget_date_from: hasBudget && clientForm.budget_period === "range" ? clientForm.budget_date_from : null,
+      budget_date_to: hasBudget && clientForm.budget_period === "range" ? clientForm.budget_date_to : null,
     }
     if (editingClient) {
       await supabase.from("clients").update(payload).eq("id", editingClient.id)
@@ -173,8 +203,16 @@ export default function ClientsPage() {
       toast.success("Kunde erstellt")
     }
     setClientDialog(false); setEditingClient(null)
-    setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false, monthly_booked_days: "" })
+    resetClientForm()
     loadClients(userId)
+  }
+
+  function resetClientForm() {
+    setClientForm({
+      name: "", client_nr: "", country: "DE", default_remote: false,
+      budget_value: "", budget_unit: "MT", budget_period: "monthly",
+      budget_carry_over: false, budget_date_from: "", budget_date_to: "",
+    })
   }
 
   async function saveProject() {
@@ -307,7 +345,7 @@ export default function ClientsPage() {
           </Button>
           <Button onClick={() => {
             setEditingClient(null)
-            setClientForm({ name: "", client_nr: "", country: "DE", default_remote: false, monthly_booked_days: "" })
+            resetClientForm()
             setClientDialog(true)
           }} className="gap-2 order-first w-full sm:order-none sm:w-auto">
             <Plus className="h-4 w-4" />Neuer Kunde
@@ -429,7 +467,25 @@ export default function ClientsPage() {
                       <Button variant="ghost" size="icon" className="h-8 w-8"
                         onClick={() => {
                           setEditingClient(client)
-                          setClientForm({ name: client.name, client_nr: client.client_nr ?? "", country: client.country, default_remote: client.default_remote ?? false, monthly_booked_days: client.monthly_booked_days != null ? String(client.monthly_booked_days) : "" })
+                          const hasBudget = client.budget_h != null && client.budget_h > 0
+                          const unit = client.budget_unit ?? "MT"
+                          const value = hasBudget
+                            ? (unit === "MT"
+                              ? (client.budget_h! / hoursPerDay).toFixed(1)
+                              : client.budget_h!.toFixed(1))
+                            : ""
+                          setClientForm({
+                            name: client.name,
+                            client_nr: client.client_nr ?? "",
+                            country: client.country,
+                            default_remote: client.default_remote ?? false,
+                            budget_value: value,
+                            budget_unit: unit,
+                            budget_period: client.budget_period ?? "monthly",
+                            budget_carry_over: client.budget_carry_over ?? false,
+                            budget_date_from: client.budget_date_from ?? "",
+                            budget_date_to: client.budget_date_to ?? "",
+                          })
                           setClientDialog(true)
                         }}>
                         <Pencil className="h-4 w-4" />
@@ -783,16 +839,106 @@ export default function ClientsPage() {
               <Switch checked={clientForm.default_remote} onCheckedChange={(v) => setClientForm({ ...clientForm, default_remote: v })} />
             </div>
             <div className="space-y-2">
-              <Label>Kundenauslastung Budget (MT/Monat)</Label>
-              <Input
-                type="number"
-                step="0.5"
-                min="0"
-                placeholder="Optional"
-                value={clientForm.monthly_booked_days}
-                onChange={(e) => setClientForm({ ...clientForm, monthly_booked_days: e.target.value })}
-              />
+              <Label>Kundenauslastung Budget</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="Optional"
+                  value={clientForm.budget_value}
+                  onChange={(e) => setClientForm({ ...clientForm, budget_value: e.target.value })}
+                  className="flex-1"
+                />
+                <div className="flex gap-1">
+                  {(["h", "MT"] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => setClientForm({ ...clientForm, budget_unit: unit })}
+                      className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                        clientForm.budget_unit === unit
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground border-border hover:bg-accent"
+                      }`}
+                    >
+                      {unit === "h" ? "h" : "MT"}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
+            <div className="space-y-2">
+              <Label>Zeitraum</Label>
+              <div className="flex gap-1">
+                {(["total", "monthly", "range"] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setClientForm({ ...clientForm, budget_period: p })}
+                    className={`flex-1 text-xs px-2 py-1.5 rounded-md border transition-colors ${
+                      clientForm.budget_period === p
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:bg-accent"
+                    }`}
+                  >
+                    {p === "total" ? "Gesamt" : p === "monthly" ? "Monatlich" : "Datum"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {clientForm.budget_period === "range" && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Von</Label>
+                  <input
+                    type="date"
+                    value={clientForm.budget_date_from}
+                    onChange={(e) => setClientForm({ ...clientForm, budget_date_from: e.target.value })}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Bis</Label>
+                  <input
+                    type="date"
+                    value={clientForm.budget_date_to}
+                    min={clientForm.budget_date_from || undefined}
+                    onChange={(e) => setClientForm({ ...clientForm, budget_date_to: e.target.value })}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              </div>
+            )}
+            {clientForm.budget_period === "monthly" && (
+              <div className="space-y-1.5">
+                <Label>Übertrag</Label>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setClientForm({ ...clientForm, budget_carry_over: false })}
+                    className={`flex-1 text-xs px-2 py-1.5 rounded-md border transition-colors ${
+                      !clientForm.budget_carry_over
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:bg-accent"
+                    }`}
+                  >
+                    Neu je Monat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClientForm({ ...clientForm, budget_carry_over: true })}
+                    className={`flex-1 text-xs px-2 py-1.5 rounded-md border transition-colors ${
+                      clientForm.budget_carry_over
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:bg-accent"
+                    }`}
+                  >
+                    Übertrag
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex-row justify-between sm:justify-between">
             {editingClient

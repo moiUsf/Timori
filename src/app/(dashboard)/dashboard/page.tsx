@@ -4,13 +4,13 @@ import { useEffect, useState, useCallback } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Clock, Umbrella, TrendingUp, CalendarDays, Pencil, Check, Download, X, Palmtree } from "lucide-react"
+import { Clock, Umbrella, TrendingUp, CalendarDays, Download, X, Palmtree } from "lucide-react"
 import { formatHours, formatMonthYear } from "@/lib/utils"
 import { getHolidays } from "@/lib/holidays"
 import type { GermanState } from "@/lib/holidays"
 import type { Client, UserProfile, VacationEntry } from "@/types/database"
-import { isBackupDue, downloadBlob } from "@/lib/backup-idb"
+import { isBackupDue, downloadBlob, loadHandleFromIDB } from "@/lib/backup-idb"
+import { toast } from "sonner"
 
 type ClientStat = {
   client: Client
@@ -18,6 +18,7 @@ type ClientStat = {
   booked_h: number
   remaining_h: number
   pct: number
+  period_label: string
 }
 
 function countWorkingDays(year: number, month: number): number {
@@ -50,8 +51,6 @@ export default function DashboardPage() {
   const [upcomingHolidays, setUpcomingHolidays] = useState<{ date: string; name: string }[]>([])
   const [vacationThisMonth, setVacationThisMonth] = useState<VacationEntry[]>([])
   const [userId, setUserId] = useState("")
-  const [editingClientId, setEditingClientId] = useState<string | null>(null)
-  const [editingValue, setEditingValue] = useState("")
   const [backupReminder, setBackupReminder] = useState(false)
   const [backupExporting, setBackupExporting] = useState(false)
 
@@ -92,22 +91,79 @@ export default function DashboardPage() {
     const ot = overtimeMonths.reduce((s, m) => s + m.buildup_h - m.reduction_h, 0) + (overtimeMonths[0]?.carryover_h ?? 0)
     setTotalOvertime(ot)
 
-    const hoursByClient: Record<string, number> = {}
+    const monthHoursByClient: Record<string, number> = {}
     entries.forEach(e => {
-      if (e.client_id) hoursByClient[e.client_id] = (hoursByClient[e.client_id] ?? 0) + (e.net_h ?? 0)
+      if (e.client_id) monthHoursByClient[e.client_id] = (monthHoursByClient[e.client_id] ?? 0) + (e.net_h ?? 0)
     })
 
-    const stats: ClientStat[] = clients
-      .filter(c => (hoursByClient[c.id] ?? 0) > 0 || (c.monthly_booked_days ?? 0) > 0)
-      .map(c => {
-        const consumed_h = hoursByClient[c.id] ?? 0
-        const booked_h = (c.monthly_booked_days ?? 0) * hoursPerDay
-        const remaining_h = booked_h - consumed_h
-        const pct = booked_h > 0 ? Math.min(100, (consumed_h / booked_h) * 100) : 0
-        return { client: c, consumed_h, booked_h, remaining_h, pct }
-      })
-      .sort((a, b) => b.consumed_h - a.consumed_h)
+    const fmtMT = (h: number) => `${(h / hoursPerDay).toFixed(1)} MT`
+    const fmtBudget = (h: number, unit: "h" | "MT" | null) =>
+      unit === "MT" ? fmtMT(h) : `${h.toFixed(1)} h`
 
+    const candidates = clients.filter(c =>
+      (monthHoursByClient[c.id] ?? 0) > 0 ||
+      (c.budget_h != null && c.budget_h > 0)
+    )
+
+    const stats: ClientStat[] = await Promise.all(candidates.map(async (c) => {
+      const hasBudget = c.budget_h != null && c.budget_h > 0
+      const period = c.budget_period ?? "monthly"
+
+      let consumed_h = 0
+      let booked_h = 0
+      let period_label = ""
+
+      if (!hasBudget) {
+        consumed_h = monthHoursByClient[c.id] ?? 0
+        period_label = "Dieser Monat"
+      } else if (period === "monthly") {
+        booked_h = c.budget_h!
+        if (c.budget_carry_over) {
+          const { data } = await supabase.from("time_entries")
+            .select("date, net_h").eq("user_id", uid).eq("client_id", c.id)
+            .lte("date", endOfMonth)
+          const byMonth: Record<string, number> = {}
+          for (const row of (data ?? []) as { date: string; net_h: number }[]) {
+            const key = row.date.slice(0, 7)
+            byMonth[key] = (byMonth[key] ?? 0) + row.net_h
+          }
+          const currentKey = startOfMonth.slice(0, 7)
+          let carry = 0
+          for (const m of Object.keys(byMonth).sort()) {
+            if (m >= currentKey) break
+            carry = Math.max(0, c.budget_h! + carry - byMonth[m])
+          }
+          consumed_h = byMonth[currentKey] ?? 0
+          booked_h = c.budget_h! + carry
+          period_label = `Monatlich · ${fmtBudget(c.budget_h!, c.budget_unit)}${carry > 0 ? " · Übertrag" : ""}`
+        } else {
+          consumed_h = monthHoursByClient[c.id] ?? 0
+          period_label = `Monatlich · ${fmtBudget(c.budget_h!, c.budget_unit)}`
+        }
+      } else if (period === "range") {
+        booked_h = c.budget_h!
+        const from = c.budget_date_from ?? startOfMonth
+        const to = c.budget_date_to ?? endOfMonth
+        const { data } = await supabase.from("time_entries")
+          .select("net_h").eq("user_id", uid).eq("client_id", c.id)
+          .gte("date", from).lte("date", to)
+        consumed_h = ((data ?? []) as { net_h: number }[]).reduce((s, r) => s + r.net_h, 0)
+        const fmtDate = (d: string) => d.slice(5).split("-").reverse().join(".") + "." + d.slice(0, 4)
+        period_label = `${fmtDate(from)} – ${fmtDate(to)} · ${fmtBudget(c.budget_h!, c.budget_unit)}`
+      } else {
+        booked_h = c.budget_h!
+        const { data } = await supabase.from("time_entries")
+          .select("net_h").eq("user_id", uid).eq("client_id", c.id)
+        consumed_h = ((data ?? []) as { net_h: number }[]).reduce((s, r) => s + r.net_h, 0)
+        period_label = `Gesamt · ${fmtBudget(c.budget_h!, c.budget_unit)}`
+      }
+
+      const remaining_h = booked_h - consumed_h
+      const pct = booked_h > 0 ? Math.min(100, (consumed_h / booked_h) * 100) : 0
+      return { client: c, consumed_h, booked_h, remaining_h, pct, period_label }
+    }))
+
+    stats.sort((a, b) => b.consumed_h - a.consumed_h)
     setClientStats(stats)
 
     const holidays = getHolidays(year, (prof?.federal_state ?? "DE-NW") as GermanState)
@@ -152,13 +208,6 @@ export default function DashboardPage() {
     }
   }, [supabase, userId])
 
-  async function saveBookedDays(clientId: string, days: number) {
-    const value = isNaN(days) || days < 0 ? 0 : days
-    await supabase.from("clients").update({ monthly_booked_days: value }).eq("id", clientId)
-    setEditingClientId(null)
-    if (userId) loadData(userId)
-  }
-
   async function handleBackupNow() {
     setBackupExporting(true)
     try {
@@ -169,12 +218,39 @@ export default function DashboardPage() {
       const now2 = new Date()
       const pad = (n: number) => String(n).padStart(2, "0")
       const ts = `${now2.getFullYear()}-${pad(now2.getMonth()+1)}-${pad(now2.getDate())}_${pad(now2.getHours())}-${pad(now2.getMinutes())}`
-      downloadBlob(blob, `timori-backup-${ts}.json`)
+      const filename = `timori-backup-${ts}.json`
+
+      const handle = await loadHandleFromIDB()
+      if (handle) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const h = handle as any
+          let perm = await h.queryPermission?.({ mode: "readwrite" }) ?? "prompt"
+          if (perm !== "granted") perm = await h.requestPermission?.({ mode: "readwrite" }) ?? "denied"
+          if (perm === "granted") {
+            const fileHandle = await handle.getFileHandle(filename, { create: true })
+            const writable = await fileHandle.createWritable()
+            await writable.write(blob)
+            await writable.close()
+            toast.success(`Backup gespeichert in „${handle.name}"`)
+          } else {
+            downloadBlob(blob, filename)
+            toast.info("Ordnerzugriff verweigert — Backup als Download gespeichert")
+          }
+        } catch {
+          downloadBlob(blob, filename)
+          toast.info("Ordner nicht erreichbar — Backup als Download gespeichert")
+        }
+      } else {
+        downloadBlob(blob, filename)
+      }
+
       const iso = new Date().toISOString()
       localStorage.setItem("lastBackupAt", iso)
+      localStorage.removeItem("backupPendingSince")
       setBackupReminder(false)
     } catch {
-      // keep reminder visible on error
+      toast.error("Backup fehlgeschlagen")
     } finally {
       setBackupExporting(false)
     }
@@ -293,42 +369,13 @@ export default function DashboardPage() {
           <CardContent className="space-y-5">
             {clientStats.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("noUtilization")}</p>
-            ) : clientStats.map(({ client, consumed_h, booked_h, remaining_h, pct }) => (
+            ) : clientStats.map(({ client, consumed_h, booked_h, remaining_h, pct, period_label }) => (
               <div key={client.id} className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium truncate">{client.name}</span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {editingClientId === client.id ? (
-                      <>
-                        <Input
-                          type="number"
-                          step="0.5"
-                          min="0"
-                          value={editingValue}
-                          onChange={e => setEditingValue(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === "Enter") saveBookedDays(client.id, parseFloat(editingValue))
-                            if (e.key === "Escape") setEditingClientId(null)
-                          }}
-                          autoFocus
-                          className="w-20 h-6 text-xs px-2"
-                        />
-                        <span className="text-xs text-muted-foreground">{t("bookedDaysUnit")}</span>
-                        <button
-                          onClick={() => saveBookedDays(client.id, parseFloat(editingValue))}
-                          className="text-green-600 hover:text-green-700">
-                          <Check className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => { setEditingClientId(client.id); setEditingValue(String(client.monthly_booked_days ?? 0)) }}
-                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors group">
-                        <span className="font-mono">{client.monthly_booked_days ?? 0} {t("bookedDaysUnit")}</span>
-                        <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </button>
-                    )}
-                  </div>
+                  {booked_h > 0 && (
+                    <span className="text-xs text-muted-foreground shrink-0">{period_label}</span>
+                  )}
                 </div>
 
                 {booked_h > 0 ? (

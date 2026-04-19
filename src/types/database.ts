@@ -57,7 +57,12 @@ export interface Client {
   country: string
   active: boolean
   default_remote: boolean
-  monthly_booked_days: number | null
+  budget_h: number | null
+  budget_unit: "h" | "MT" | null
+  budget_period: "total" | "monthly" | "range" | null
+  budget_carry_over: boolean | null
+  budget_date_from: string | null
+  budget_date_to: string | null
   created_at: string
 }
 
