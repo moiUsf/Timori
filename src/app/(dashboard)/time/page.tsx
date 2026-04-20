@@ -842,35 +842,35 @@ export default function TimePage() {
           ) : (
             <>
               {/* Filter bar */}
-              <div className="px-4 py-2 border-b flex flex-wrap gap-3 items-end md:px-6">
-                <div className="flex flex-col gap-1">
+              <div className="px-4 py-2 border-b flex flex-wrap gap-3 items-end md:px-6 max-md:gap-4">
+                <div className="flex flex-col gap-1 max-md:w-full">
                   <span className="text-xs text-muted-foreground font-medium">Kunde</span>
                   <MultiSelectFilter
                     label="Kunde"
                     options={clients.map(c => ({ value: c.id, label: c.name }))}
                     selected={filterClient}
                     onChange={v => { setFilterClient(v); setFilterBookingItem([]); setFilterTask([]) }}
-                    className="w-36"
+                    className="w-36 max-md:w-full"
                   />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 max-md:w-full">
                   <span className="text-xs text-muted-foreground font-medium">Buchungsposten</span>
                   <MultiSelectFilter
                     label="Buchungsposten"
                     options={allBookingItems.map(b => ({ value: b, label: b }))}
                     selected={filterBookingItem}
                     onChange={setFilterBookingItem}
-                    className="w-44"
+                    className="w-44 max-md:w-full"
                   />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 max-md:w-full">
                   <span className="text-xs text-muted-foreground font-medium">Aufgabe</span>
                   <MultiSelectFilter
                     label="Aufgabe"
                     options={allFilterTasks.map(t => ({ value: t.id, label: t.name }))}
                     selected={filterTask}
                     onChange={setFilterTask}
-                    className="w-36"
+                    className="w-36 max-md:w-full"
                   />
                 </div>
                 {filterClient.length > 0 && filterClient.map(id => (
