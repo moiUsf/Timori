@@ -487,7 +487,7 @@ export default function TimePage() {
       {showForm && (
         <div ref={formRef}>
         <Card>
-          <CardHeader>
+          <CardHeader className="px-4 md:px-6">
             <CardTitle className="text-base">
               {editingEntry ? t("editEntry") : t("newTimeEntry")}
             </CardTitle>
@@ -652,14 +652,14 @@ export default function TimePage() {
                           if (e.key === "Enter") { e.preventDefault(); handleCreateProject() }
                           if (e.key === "Escape") setCreatingProject(false)
                         }}
-                        className="h-11 text-sm md:h-8"
+                        className="h-12 text-base md:h-9 md:text-sm"
                       />
                       <Button type="button" size="sm" onClick={handleCreateProject}
-                        disabled={!newProjectName.trim()} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0">
+                        disabled={!newProjectName.trim()} className="shrink-0 h-12 md:h-9">
                         <Plus className="h-4 w-4" />
                       </Button>
                       <Button type="button" size="sm" variant="ghost"
-                        onClick={() => setCreatingProject(false)} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0 text-muted-foreground">
+                        onClick={() => setCreatingProject(false)} className="shrink-0 h-12 md:h-9 text-muted-foreground">
                         ✕
                       </Button>
                     </div>
@@ -713,14 +713,14 @@ export default function TimePage() {
                           if (e.key === "Enter") { e.preventDefault(); handleCreateTask() }
                           if (e.key === "Escape") setCreatingTask(false)
                         }}
-                        className="h-11 text-sm md:h-8"
+                        className="h-12 text-base md:h-9 md:text-sm"
                       />
                       <Button type="button" size="sm" onClick={handleCreateTask}
-                        disabled={!newTaskName.trim()} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0">
+                        disabled={!newTaskName.trim()} className="shrink-0 h-12 md:h-9">
                         <Plus className="h-4 w-4" />
                       </Button>
                       <Button type="button" size="sm" variant="ghost"
-                        onClick={() => setCreatingTask(false)} className="h-11 w-11 md:h-8 md:w-auto md:px-2 shrink-0 text-muted-foreground">
+                        onClick={() => setCreatingTask(false)} className="shrink-0 h-12 md:h-9 text-muted-foreground">
                         ✕
                       </Button>
                     </div>
@@ -762,16 +762,16 @@ export default function TimePage() {
                     <span>{t("gross")}: <strong>{formatHours(hoursFromTimeRange(form.time_from, form.time_to))}</strong></span>
                   </span>
                 )}
-                <div className="flex flex-wrap gap-2 md:ml-auto items-center">
+                <div className="flex flex-wrap gap-2 md:ml-auto items-center max-md:flex-col max-md:gap-3 max-md:w-full">
                   {editingEntry && (
-                    <Button type="button" variant="outline" className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 md:mr-8"
+                    <Button type="button" variant="outline" className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 md:mr-8 max-md:w-full max-md:h-12 max-md:text-base"
                       onClick={() => { handleDelete(editingEntry.id); setShowForm(false); setEditingEntry(null) }}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       {tCommon("delete")}
                     </Button>
                   )}
-                  <Button type="button" variant="outline" className="ml-auto md:ml-0" onClick={() => { setShowForm(false); setEditingEntry(null) }}>{tCommon("cancel")}</Button>
-                  <Button type="submit">{editingEntry ? tCommon("update") : tCommon("save")}</Button>
+                  <Button type="button" variant="outline" className="ml-auto md:ml-0 max-md:w-full max-md:h-12 max-md:text-base" onClick={() => { setShowForm(false); setEditingEntry(null) }}>{tCommon("cancel")}</Button>
+                  <Button type="submit" className="max-md:w-full max-md:h-12 max-md:text-base">{editingEntry ? tCommon("update") : tCommon("save")}</Button>
                 </div>
               </div>
             </form>
