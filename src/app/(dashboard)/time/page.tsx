@@ -472,12 +472,12 @@ export default function TimePage() {
           <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="outline" onClick={() => setReportDialogOpen(true)} className="gap-2">
+        <div className="flex gap-2 shrink-0 max-md:w-full max-md:flex-col">
+          <Button variant="outline" onClick={() => setReportDialogOpen(true)} className="gap-2 max-md:w-full">
             <FileText className="h-4 w-4" />
             {t("exportReport")}
           </Button>
-          <Button onClick={openNew} className="gap-2">
+          <Button onClick={openNew} className="gap-2 max-md:w-full">
             <Plus className="h-4 w-4" />
             {t("newEntry")}
           </Button>
