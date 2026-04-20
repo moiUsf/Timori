@@ -389,7 +389,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
           <Button onClick={handleStart} disabled={loading} className="gap-2">
-            <TimerPlay className="h-4 w-4" />
+            <TimerPlay className="h-4 w-4 max-md:h-6 max-md:w-6" />
             {loading ? "Startet..." : "Timer starten"}
           </Button>
         </DialogFooter>

@@ -32,7 +32,8 @@
       "Bash(taskkill /F /IM node.exe)",
       "Bash(taskkill:*)",
       "Bash(powershell.exe:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:icon-icons.com)"
     ]
   },
   "hooks": {
