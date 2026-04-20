@@ -196,10 +196,12 @@ export default function ClientsPage() {
       budget_date_to: hasBudget && clientForm.budget_period === "range" ? clientForm.budget_date_to : null,
     }
     if (editingClient) {
-      await supabase.from("clients").update(payload).eq("id", editingClient.id)
+      const { error } = await supabase.from("clients").update(payload).eq("id", editingClient.id)
+      if (error) { toast.error("Fehler: " + error.message); return }
       toast.success("Kunde aktualisiert")
     } else {
-      await supabase.from("clients").insert({ ...payload, user_id: userId })
+      const { error } = await supabase.from("clients").insert({ ...payload, user_id: userId })
+      if (error) { toast.error("Fehler: " + error.message); return }
       toast.success("Kunde erstellt")
     }
     setClientDialog(false); setEditingClient(null)
@@ -434,7 +436,24 @@ export default function ClientsPage() {
                 clientSearch.trim() === "" ||
                 c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
                 (c.client_nr ?? "").toLowerCase().includes(clientSearch.toLowerCase())
-              ).map((client) => (
+              ).map((client) => {
+                const hasBudget = client.budget_h != null && client.budget_h > 0
+                const budgetLabel = (() => {
+                  if (!hasBudget) return null
+                  const unit = client.budget_unit ?? "MT"
+                  const value = unit === "MT"
+                    ? (client.budget_h! / hoursPerDay).toFixed(1)
+                    : client.budget_h!.toFixed(1)
+                  const unitText = unit === "MT" ? "MT" : "h"
+                  const period = client.budget_period ?? "monthly"
+                  if (period === "monthly") return `${value} ${unitText}/Monat${client.budget_carry_over ? " · Übertrag" : ""}`
+                  if (period === "range") {
+                    const fmtDate = (d: string) => d.slice(5).split("-").reverse().join(".") + "." + d.slice(0, 4)
+                    return `${value} ${unitText} · ${client.budget_date_from ? fmtDate(client.budget_date_from) : "?"}–${client.budget_date_to ? fmtDate(client.budget_date_to) : "?"}`
+                  }
+                  return `${value} ${unitText} Gesamt`
+                })()
+                return (
                 <Card key={client.id}>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4 cursor-pointer select-none" onClick={() => toggleClient(client.id)}>
                     {expanded.has(client.id)
@@ -446,6 +465,11 @@ export default function ClientsPage() {
                       <Badge variant={client.active ? "success" : "secondary"} className="text-xs">
                         {client.active ? "Aktiv" : "Inaktiv"}
                       </Badge>
+                      {budgetLabel && (
+                        <Badge variant="outline" className="text-xs font-normal">
+                          📊 {budgetLabel}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 w-full pl-7 sm:pl-0 sm:w-auto sm:ml-auto" onClick={(e) => e.stopPropagation()}>
                       {client.default_remote && (
@@ -666,7 +690,8 @@ export default function ClientsPage() {
                     </div>
                   )}
                 </Card>
-              ))}
+                )
+              })}
               {clients.filter(c =>
                 clientSearch.trim() === "" ||
                 c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
