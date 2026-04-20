@@ -782,14 +782,14 @@ export default function TimePage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="h-9 w-9"
+          <div className="flex items-center justify-between gap-3 flex-wrap max-md:gap-4">
+            <div className="flex items-center gap-1 max-md:w-full max-md:gap-2">
+              <Button variant="outline" size="icon" className="h-9 w-9 max-md:h-12 max-md:w-12"
                 onClick={() => setCurrentDate(new Date(year, month - 2, 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Select value={String(month - 1)} onValueChange={v => setCurrentDate(new Date(year, Number(v), 1))}>
-                <SelectTrigger className="h-9 w-[120px] text-sm font-medium">
+                <SelectTrigger className="h-9 w-[120px] text-sm font-medium max-md:h-12 max-md:w-auto max-md:flex-1 max-md:text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -799,7 +799,7 @@ export default function TimePage() {
                 </SelectContent>
               </Select>
               <Select value={String(year)} onValueChange={v => setCurrentDate(new Date(Number(v), month - 1, 1))}>
-                <SelectTrigger className="h-9 w-[80px] text-sm font-medium">
+                <SelectTrigger className="h-9 w-[80px] text-sm font-medium max-md:h-12 max-md:w-auto max-md:flex-1 max-md:text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -808,29 +808,29 @@ export default function TimePage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="icon" className="h-9 w-9"
+              <Button variant="outline" size="icon" className="h-9 w-9 max-md:h-12 max-md:w-12"
                 onClick={() => setCurrentDate(new Date(year, month, 1))}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap max-md:w-full max-md:flex-col max-md:items-stretch max-md:gap-4">
               {/* Sort order toggle */}
               <button onClick={() => setSortAsc(v => !v)}
-                className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] md:px-2 md:py-1 md:text-xs md:min-h-0">
+                className="flex items-center gap-1 rounded-md border px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px] md:px-2 md:py-1 md:text-xs md:min-h-0 max-md:w-full max-md:justify-center">
                 {sortAsc ? "↑ Älteste zuerst" : "↓ Neueste zuerst"}
               </button>
               {/* Segmented grouping control */}
-              <div className="flex items-center rounded-md border p-0.5 gap-0.5">
+              <div className="flex items-center rounded-md border p-0.5 gap-0.5 max-md:w-full">
                 {(["day", "client", "booking_item", "task"] as const).map(opt => (
                   <button key={opt} onClick={() => setGroupBy(opt)}
-                    className={cn("flex items-center px-3 py-2 text-sm rounded transition-colors min-h-[44px] md:px-2 md:py-1 md:text-xs md:min-h-0",
+                    className={cn("flex items-center px-3 py-2 text-sm rounded transition-colors min-h-[44px] md:px-2 md:py-1 md:text-xs md:min-h-0 max-md:flex-1 max-md:justify-center",
                       groupBy === opt ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
                     )}>
                     {opt === "day" ? "Tag" : opt === "client" ? "Kunde" : opt === "booking_item" ? "Buchungsposten" : "Aufgabe"}
                   </button>
                 ))}
               </div>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-muted-foreground max-md:w-full max-md:text-center">
                 {t("total")}: <strong>{formatHours(totalHours)}</strong>
               </span>
             </div>
