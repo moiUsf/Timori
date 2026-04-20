@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, Sele
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatHours, formatDate, hoursFromTimeRange, cn } from "@/lib/utils"
-import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText, Play } from "lucide-react"
+import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText } from "lucide-react"
+import { TimerPlay } from "@/components/icons/timer-play"
 import { toast } from "sonner"
 import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter"
@@ -944,7 +945,7 @@ export default function TimePage() {
                             <div className="flex justify-end gap-1 mt-1">
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
                                 title="Timer starten" onClick={(e) => { e.stopPropagation(); openTimerFromEntry(entry) }}>
-                                <Play className="h-4 w-4" />
+                                <TimerPlay className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
                                 title="Klonen" onClick={(e) => { e.stopPropagation(); openClone(entry) }}>
@@ -993,7 +994,7 @@ export default function TimePage() {
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                                 title="Timer starten" onClick={(e) => { e.stopPropagation(); openTimerFromEntry(entry) }}>
-                                <Play className="h-4 w-4" />
+                                <TimerPlay className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
                                 title="Klonen" onClick={(e) => { e.stopPropagation(); openClone(entry) }}>

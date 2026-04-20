@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Play, Pause, Square, Plus, Pencil, Trash2 } from "lucide-react"
+import { Play, Pause, Square, Pencil, Trash2 } from "lucide-react"
+import { TimerPlay } from "@/components/icons/timer-play"
 import { createClient } from "@/lib/supabase/client"
 import type { ActiveTimer, Client, Project, Task } from "@/types/database"
 import { useTimerDisplay } from "@/lib/timer-display-context"
@@ -145,7 +146,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
     return (
       <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 max-md:px-2 max-md:gap-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <Button className="gap-2 max-md:h-11" onClick={() => setDialogOpen(true)}>
-          <Play className="h-4 w-4" />
+          <TimerPlay className="h-4 w-4" />
           Timer starten
         </Button>
         <StartTimerDialog
@@ -174,7 +175,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
         title="Neuer Timer"
         aria-label="Neuer Timer"
       >
-        <Plus className="h-4 w-4" />
+        <TimerPlay className="h-4 w-4" />
         <span className="max-md:hidden">Neuer Timer</span>
       </Button>
       <div className="flex items-center gap-3 overflow-x-auto min-w-0 max-md:gap-2 max-md:snap-x max-md:snap-mandatory">
