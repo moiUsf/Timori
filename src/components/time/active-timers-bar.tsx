@@ -170,13 +170,13 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   return (
     <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 max-md:gap-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <Button
-        className="shrink-0 gap-2 max-md:h-11 max-md:w-11 max-md:p-0 max-md:gap-0"
+        className="shrink-0 gap-2 max-md:h-[52px]"
         onClick={() => setDialogOpen(true)}
         title="Neuer Timer"
         aria-label="Neuer Timer"
       >
         <TimerPlay className="h-4 w-4 max-md:h-6 max-md:w-6" />
-        <span className="max-md:hidden">Neuer Timer</span>
+        <span>Neuer Timer</span>
       </Button>
       <div className="flex items-center gap-3 overflow-x-auto min-w-0 max-md:gap-2 max-md:snap-x max-md:snap-mandatory">
       {timers.map((timer) => {
