@@ -844,7 +844,7 @@ export default function TimePage() {
               {/* Filter bar */}
               <div className="px-4 py-2 border-b flex flex-wrap gap-3 items-end md:px-6 max-md:gap-4">
                 <div className="flex flex-col gap-1 max-md:w-full">
-                  <span className="text-xs text-muted-foreground font-medium">Kunde</span>
+                  <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Kunde</span>
                   <MultiSelectFilter
                     label="Kunde"
                     options={clients.map(c => ({ value: c.id, label: c.name }))}
@@ -854,7 +854,7 @@ export default function TimePage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1 max-md:w-full">
-                  <span className="text-xs text-muted-foreground font-medium">Buchungsposten</span>
+                  <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Buchungsposten</span>
                   <MultiSelectFilter
                     label="Buchungsposten"
                     options={allBookingItems.map(b => ({ value: b, label: b }))}
@@ -864,7 +864,7 @@ export default function TimePage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1 max-md:w-full">
-                  <span className="text-xs text-muted-foreground font-medium">Aufgabe</span>
+                  <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Aufgabe</span>
                   <MultiSelectFilter
                     label="Aufgabe"
                     options={allFilterTasks.map(t => ({ value: t.id, label: t.name }))}

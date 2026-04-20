@@ -44,7 +44,7 @@ export function MultiSelectFilter({ label, options, selected, onChange, classNam
       <Popover.Trigger asChild>
         <button
           className={cn(
-            "flex h-8 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-2 text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "flex h-8 items-center justify-between gap-1.5 rounded-md border border-input bg-background px-2 text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-12 max-md:px-3 max-md:text-base",
             selected.length > 0 ? "border-primary text-primary font-medium" : "text-foreground",
             className
           )}
@@ -52,11 +52,11 @@ export function MultiSelectFilter({ label, options, selected, onChange, classNam
           <span className="truncate">{buttonLabel}</span>
           {selected.length > 0 ? (
             <X
-              className="h-3 w-3 shrink-0 opacity-60 hover:opacity-100"
+              className="h-3 w-3 shrink-0 opacity-60 hover:opacity-100 max-md:h-4 max-md:w-4"
               onClick={e => { e.stopPropagation(); onChange([]) }}
             />
           ) : (
-            <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+            <ChevronDown className="h-3 w-3 shrink-0 opacity-50 max-md:h-4 max-md:w-4" />
           )}
         </button>
       </Popover.Trigger>
