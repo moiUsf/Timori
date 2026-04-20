@@ -13,7 +13,8 @@ import {
   Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Play, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
+import { TimerPlay } from "@/components/icons/timer-play"
 
 export interface TimerInitialValues {
   clientId?: string
@@ -388,7 +389,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
           <Button onClick={handleStart} disabled={loading} className="gap-2">
-            <Play className="h-4 w-4" />
+            <TimerPlay className="h-4 w-4" />
             {loading ? "Startet..." : "Timer starten"}
           </Button>
         </DialogFooter>
