@@ -144,9 +144,9 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
 
   if (timers.length === 0 && !dialogOpen) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 max-md:px-2 max-md:gap-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 max-md:gap-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <Button className="gap-2 max-md:h-11" onClick={() => setDialogOpen(true)}>
-          <TimerPlay className="h-4 w-4" />
+          <TimerPlay className="h-4 w-4 max-md:h-6 max-md:w-6" />
           Timer starten
         </Button>
         <StartTimerDialog
@@ -168,14 +168,14 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 max-md:px-2 max-md:gap-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 max-md:gap-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <Button
         className="shrink-0 gap-2 max-md:h-11 max-md:w-11 max-md:p-0 max-md:gap-0"
         onClick={() => setDialogOpen(true)}
         title="Neuer Timer"
         aria-label="Neuer Timer"
       >
-        <TimerPlay className="h-4 w-4" />
+        <TimerPlay className="h-4 w-4 max-md:h-6 max-md:w-6" />
         <span className="max-md:hidden">Neuer Timer</span>
       </Button>
       <div className="flex items-center gap-3 overflow-x-auto min-w-0 max-md:gap-2 max-md:snap-x max-md:snap-mandatory">
@@ -195,7 +195,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
               title="Timer bearbeiten"
             >
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-medium truncate max-w-[240px] max-md:text-sm max-md:max-w-[80px]">
+                <span className="text-xs font-medium truncate max-w-[240px] max-md:text-sm max-md:leading-tight max-md:max-w-[110px]">
                   {timer.client?.name}
                 </span>
                 {timerFields
@@ -207,7 +207,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
                       f.field === "aufgabe" ? timer.task?.name :
                       timer.description || undefined
                     return value ? (
-                      <span key={f.field} className="text-xs text-muted-foreground truncate max-w-[240px] max-md:hidden">
+                      <span key={f.field} className="text-xs text-muted-foreground truncate max-w-[240px] max-md:text-sm max-md:leading-tight max-md:max-w-[110px]">
                         {value}
                       </span>
                     ) : null

@@ -945,7 +945,7 @@ export default function TimePage() {
                             <div className="flex justify-end gap-1 mt-1">
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
                                 title="Timer starten" onClick={(e) => { e.stopPropagation(); openTimerFromEntry(entry) }}>
-                                <TimerPlay className="h-4 w-4" />
+                                <TimerPlay className="h-4 w-4 max-md:h-6 max-md:w-6" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
                                 title="Klonen" onClick={(e) => { e.stopPropagation(); openClone(entry) }}>

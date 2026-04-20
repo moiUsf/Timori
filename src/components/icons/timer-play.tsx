@@ -1,5 +1,7 @@
 import type { SVGProps } from "react"
 
+// Source: icon-icons.com id 243981 ("Timer starten")
+// https://images.icon-icons.com/3870/SVG/timer_start_icon_243981.svg
 export function TimerPlay({
   className,
   ...props
@@ -10,17 +12,21 @@ export function TimerPlay({
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
       aria-hidden="true"
       {...props}
     >
-      <line x1="10" y1="2" x2="14" y2="2" />
-      <line x1="12" y1="2" x2="12" y2="5" />
-      <circle cx="12" cy="14" r="8" />
-      <path d="M10 11v6l5.5-3z" fill="currentColor" stroke="currentColor" />
+      <path d="M12 8V13" />
+      <path d="M8.00977 5.46C9.20977 4.85 10.5598 4.5 11.9998 4.5C16.8298 4.5 20.7498 8.42 20.7498 13.25" />
+      <path d="M12 22C7.17 22 3.25 18.08 3.25 13.25C3.25 11.27 3.91 9.44999 5.01 7.98999" />
+      <path d="M9 2H15" strokeMiterlimit="10" />
+      <path
+        d="M14.9004 18.5V17.34C14.9004 15.91 15.9204 15.32 17.1604 16.04L18.1604 16.62L19.1604 17.2C20.4004 17.92 20.4004 19.09 19.1604 19.81L18.1604 20.39L17.1604 20.97C15.9204 21.69 14.9004 21.1 14.9004 19.67V18.5Z"
+        strokeMiterlimit="10"
+      />
     </svg>
   )
 }
