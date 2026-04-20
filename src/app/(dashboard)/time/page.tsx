@@ -601,7 +601,7 @@ export default function TimePage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div className="space-y-2 col-span-2 md:col-span-1">
                   <Label>{t("project")}</Label>
-                  <Select value={form.project_id || "_none"}
+                  <Select key={`project-${form.project_id}-${projects.length}`} value={form.project_id || "_none"}
                     onValueChange={(v) => {
                       if (v === "_create_project") {
                         setCreatingProject(true)
@@ -666,7 +666,7 @@ export default function TimePage() {
                 </div>
                 <div className="space-y-2 col-span-2 md:col-span-1">
                   <Label>{t("task")}</Label>
-                  <Select value={form.task_id || "_none"}
+                  <Select key={`task-${form.task_id}-${tasks.length}`} value={form.task_id || "_none"}
                     onValueChange={(v) => {
                       if (v === "_create_task") {
                         setCreatingTask(true)
