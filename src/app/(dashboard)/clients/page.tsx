@@ -356,9 +356,9 @@ export default function ClientsPage() {
       </div>
 
       <Tabs defaultValue="clients">
-        <TabsList>
-          <TabsTrigger value="clients">Kunden & Projekte</TabsTrigger>
-          <TabsTrigger value="tasks">Aufgaben & Buchungsposten</TabsTrigger>
+        <TabsList className="max-md:flex max-md:w-full max-md:h-12">
+          <TabsTrigger value="clients" className="max-md:flex-1 max-md:text-base">Kunden & Projekte</TabsTrigger>
+          <TabsTrigger value="tasks" className="max-md:flex-1 max-md:text-base">Aufgaben & Buchungsposten</TabsTrigger>
         </TabsList>
 
         {/* ── Tab 1: Clients & Projects ── */}
