@@ -143,8 +143,8 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
 
   if (timers.length === 0 && !dialogOpen) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3">
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+      <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 max-md:px-2 max-md:gap-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <Button className="gap-2 max-md:h-11" onClick={() => setDialogOpen(true)}>
           <Play className="h-4 w-4" />
           Timer starten
         </Button>
@@ -167,19 +167,24 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3">
-      <Button className="shrink-0 gap-2" onClick={() => setDialogOpen(true)}>
+    <div className="fixed bottom-0 left-0 right-0 md:left-60 border-t bg-card px-4 py-2 flex items-center gap-3 max-md:px-2 max-md:gap-2 max-md:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <Button
+        className="shrink-0 gap-2 max-md:h-11 max-md:w-11 max-md:p-0 max-md:gap-0"
+        onClick={() => setDialogOpen(true)}
+        title="Neuer Timer"
+        aria-label="Neuer Timer"
+      >
         <Plus className="h-4 w-4" />
-        Neuer Timer
+        <span className="max-md:hidden">Neuer Timer</span>
       </Button>
-      <div className="flex items-center gap-3 overflow-x-auto min-w-0">
+      <div className="flex items-center gap-3 overflow-x-auto min-w-0 max-md:gap-2 max-md:snap-x max-md:snap-mandatory">
       {timers.map((timer) => {
         const elapsed = getElapsed(timer)
         const isPaused = !!timer.paused_at
         return (
           <div
             key={timer.id}
-            className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 shrink-0"
+            className="flex items-center gap-1 rounded-lg border bg-background px-3 py-1.5 shrink-0 max-md:px-2 max-md:py-1 max-md:snap-start"
           >
             {/* Clickable info section → edit dialog */}
             <button
@@ -189,7 +194,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
               title="Timer bearbeiten"
             >
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-medium truncate max-w-[240px]">
+                <span className="text-xs font-medium truncate max-w-[240px] max-md:text-sm max-md:max-w-[80px]">
                   {timer.client?.name}
                 </span>
                 {timerFields
@@ -201,7 +206,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
                       f.field === "aufgabe" ? timer.task?.name :
                       timer.description || undefined
                     return value ? (
-                      <span key={f.field} className="text-xs text-muted-foreground truncate max-w-[240px]">
+                      <span key={f.field} className="text-xs text-muted-foreground truncate max-w-[240px] max-md:hidden">
                         {value}
                       </span>
                     ) : null
@@ -213,14 +218,14 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
               >
                 {formatDuration(elapsed)}
               </span>
-              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 max-md:hidden" />
             </button>
             {/* Controls */}
-            <div className="flex items-center gap-1 ml-1">
+            <div className="flex items-center gap-1 ml-1 max-md:gap-0.5 max-md:ml-0.5">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9"
+                className="h-9 w-9 max-md:h-11 max-md:w-11"
                 onClick={() => handlePause(timer)}
                 title={isPaused ? "Fortsetzen" : "Pausieren"}
               >
@@ -229,7 +234,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-destructive hover:text-destructive"
+                className="h-7 w-7 text-destructive hover:text-destructive max-md:h-11 max-md:w-11"
                 onClick={() => handleStop(timer)}
                 title="Stoppen & Speichern"
               >
@@ -238,7 +243,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive max-md:h-11 max-md:w-11"
                 onClick={() => setDeletingTimerId(timer.id)}
                 title="Timer löschen"
               >
