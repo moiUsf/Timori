@@ -34,7 +34,7 @@ function dayHeaders(daysInMonth: number): string[] {
 function buildColStyles(): Record<number, object> {
   const styles: Record<number, object> = {
     0: { cellWidth: W_PROJ,  halign: "left" },
-    1: { cellWidth: W_KUNDE, halign: "left", overflow: "ellipsis" },
+    1: { cellWidth: W_KUNDE, halign: "left", overflow: "ellipsize" },
     2: { cellWidth: W_CODE,  halign: "left" },
   }
   for (let d = 0; d < 31; d++) {
@@ -46,7 +46,7 @@ function buildColStyles(): Record<number, object> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mergedLeft(text: string, extra?: object): any {
-  return { content: text, colSpan: 3, styles: { halign: "left", overflow: "ellipsis", ...extra } }
+  return { content: text, colSpan: 3, styles: { halign: "left", overflow: "ellipsize", ...extra } }
 }
 
 export function generateHauptberichtPDF(data: HauptberichtData): Blob {
@@ -95,7 +95,7 @@ export function generateHauptberichtPDF(data: HauptberichtData): Blob {
     head: [["Kunden Nr", "Kunde", "Code", ...dayHeaders(data.daysInMonth), "Summe"]],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     body: [...projectBody, summeRow] as any,
-    styles: { fontSize: 6.5, cellPadding: 0.8, overflow: "ellipsis", textColor: [0, 0, 0] },
+    styles: { fontSize: 6.5, cellPadding: 0.8, overflow: "ellipsize", textColor: [0, 0, 0] },
     headStyles: { fillColor: GRAY_FILL, textColor: [0, 0, 0], fontStyle: "bold", fontSize: 6.5, halign: "center" },
     columnStyles: buildColStyles(),
     didParseCell: (hook) => {
@@ -132,7 +132,7 @@ export function generateHauptberichtPDF(data: HauptberichtData): Blob {
     head: [[mergedLeft("Beschreibung"), ...dayHeaders(data.daysInMonth), "Summe"]],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     body: absenceBody as any,
-    styles: { fontSize: 6.5, cellPadding: 0.8, overflow: "ellipsis", textColor: [0, 0, 0] },
+    styles: { fontSize: 6.5, cellPadding: 0.8, overflow: "ellipsize", textColor: [0, 0, 0] },
     headStyles: { fillColor: GRAY_FILL, textColor: [0, 0, 0], fontStyle: "bold", fontSize: 6.5, halign: "center" },
     columnStyles: buildColStyles(),
     didParseCell: (hook) => {
