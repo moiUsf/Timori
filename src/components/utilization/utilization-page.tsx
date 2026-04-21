@@ -258,10 +258,10 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
   }
 
   async function handleUpdate(updated: UtilizationTile) {
-    const original = tiles.find((tile) => tile.id === updated.id)
     const newTiles = tiles.map((tile) => (tile.id === updated.id ? updated : tile))
     const ok = await saveTiles(newTiles)
-    if (ok && (original?.period !== updated.period || original?.carry_over !== updated.carry_over)) {
+    if (ok) {
+      toast.success(t("saved"))
       loadConsumed([updated])
     }
   }
