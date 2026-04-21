@@ -260,12 +260,6 @@ export default function DashboardPage() {
   const targetHours = workingDaysInMonth * (profile?.working_hours_per_day ?? 8)
   const overtimeDiff = totalNetHours - targetHours
 
-  function barColor(pct: number) {
-    if (pct >= 90) return "bg-red-500"
-    if (pct >= 70) return "bg-amber-400"
-    return "bg-primary"
-  }
-
   const todayStr = `${year}-${month.toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`
 
   const vacTypeLabel: Record<string, string> = {
@@ -312,10 +306,11 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">
               {t("hoursTarget", { target: formatHours(targetHours), days: workingDaysInMonth })}
             </p>
-            <div className={`text-xs font-medium mt-1 ${overtimeDiff >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {overtimeDiff >= 0 ? "+" : ""}{formatHours(Math.abs(overtimeDiff))}{" "}
-              {overtimeDiff >= 0 ? t("overtime") : t("shortfall")}
-            </div>
+            {overtimeDiff >= 0 && (
+              <div className="text-xs font-medium mt-1 text-green-600">
+                +{formatHours(overtimeDiff)} {t("overtime")}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -366,42 +361,52 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base">{t("clientUtilization", { month: formatMonthYear(now) })}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-7">
             {clientStats.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("noUtilization")}</p>
-            ) : clientStats.map(({ client, consumed_h, booked_h, remaining_h, pct, period_label }) => (
-              <div key={client.id} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium truncate">{client.name}</span>
-                  {booked_h > 0 && (
-                    <span className="text-xs text-muted-foreground shrink-0">{period_label}</span>
+              <p className="text-[13px] text-neutral-500">{t("noUtilization")}</p>
+            ) : clientStats.map(({ client, consumed_h, booked_h, remaining_h, pct }) => {
+              const remainingPct = Math.max(0, 100 - pct)
+              const tone =
+                remainingPct < 10 ? "text-red-600 dark:text-red-400"
+                : remainingPct < 30 ? "text-amber-600 dark:text-amber-400"
+                : ""
+              const barFill =
+                remainingPct < 10 ? "bg-red-500"
+                : remainingPct < 30 ? "bg-amber-400"
+                : "bg-primary"
+              return (
+                <div key={client.id} className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm truncate">{client.name}</span>
+                    {booked_h > 0 && (
+                      <span className={`text-sm tabular-nums shrink-0 ${tone}`}>
+                        {t("hoursOf", { consumed: formatHours(consumed_h), booked: formatHours(booked_h) })}
+                      </span>
+                    )}
+                  </div>
+
+                  {booked_h > 0 ? (
+                    <>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${barFill}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className={`text-[13px] ${tone || "text-neutral-500"}`}>
+                        {remaining_h >= 0
+                          ? t("remaining", { h: formatHours(remaining_h), pct: Math.round(remainingPct) })
+                          : t("overdrawn", { h: formatHours(Math.abs(remaining_h)) })}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-[13px] text-neutral-500">
+                      {t("workedNoUtilization", { h: formatHours(consumed_h) })}
+                    </p>
                   )}
                 </div>
-
-                {booked_h > 0 ? (
-                  <>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${barColor(pct)}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{t("hoursOf", { consumed: formatHours(consumed_h), booked: formatHours(booked_h) })}</span>
-                      <span className={remaining_h < 0 ? "text-red-600 font-medium" : remaining_h === 0 ? "text-amber-600 font-medium" : ""}>
-                        {remaining_h >= 0
-                          ? t("remaining", { h: formatHours(remaining_h), pct: Math.round(Math.max(0, 100 - pct)) })
-                          : t("overdrawn", { h: formatHours(Math.abs(remaining_h)) })}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {t("workedNoUtilization", { h: formatHours(consumed_h) })}
-                  </p>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </CardContent>
         </Card>
 
