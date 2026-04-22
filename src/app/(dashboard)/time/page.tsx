@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, Sele
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatHours, formatDate, hoursFromTimeRange, cn } from "@/lib/utils"
-import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText } from "lucide-react"
+import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText, Search, X } from "lucide-react"
 import { TimerPlay } from "@/components/icons/timer-play"
 import { toast } from "sonner"
 import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
@@ -89,6 +89,7 @@ export default function TimePage() {
   type GroupBy = "day" | "client" | "booking_item" | "task"
   const [groupBy, setGroupBy] = useState<GroupBy>("day")
   const [sortAsc, setSortAsc] = useState(true)
+  const [search, setSearch] = useState("")
   const [filterClient, setFilterClient] = useState<string[]>([])
   const [filterBookingItem, setFilterBookingItem] = useState<string[]>([])
   const [filterTask, setFilterTask] = useState<string[]>([])
@@ -410,11 +411,30 @@ export default function TimePage() {
     loadEntries()
   }
 
-  // Filter entries (AND-logic, multi-select)
+  // Filter entries (AND-logic: multi-select filters + full-text search)
   const displayEntries = entries.filter(e => {
     if (filterClient.length > 0 && !filterClient.includes(e.client_id)) return false
     if (filterBookingItem.length > 0 && !filterBookingItem.includes(e.booking_item_text ?? "")) return false
     if (filterTask.length > 0 && (!e.task_id || !filterTask.includes(e.task_id))) return false
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      const net = String(Math.round(e.net_h * 100) / 100)
+      const matched =
+        e.date.includes(q) ||
+        fShortDate(e.date).includes(q) ||
+        formatDate(e.date).toLowerCase().includes(q) ||
+        (e.client?.name ?? "").toLowerCase().includes(q) ||
+        (e.project?.name ?? "").toLowerCase().includes(q) ||
+        (e.task?.name ?? "").toLowerCase().includes(q) ||
+        (e.booking_item_text ?? "").toLowerCase().includes(q) ||
+        (e.description ?? "").toLowerCase().includes(q) ||
+        e.code.toLowerCase().includes(q) ||
+        fTime(e.time_from).includes(q) ||
+        fTime(e.time_to).includes(q) ||
+        net.includes(q) ||
+        (e.remote && "remote".includes(q))
+      if (!matched) return false
+    }
     return true
   })
 
@@ -843,35 +863,59 @@ export default function TimePage() {
             <>
               {/* Filter bar */}
               <div className="px-4 py-2 border-b flex flex-wrap gap-3 items-end md:px-6 max-md:gap-4">
-                <div className="flex flex-col gap-1 max-md:w-full">
-                  <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Kunde</span>
-                  <MultiSelectFilter
-                    label="Kunde"
-                    options={clients.map(c => ({ value: c.id, label: c.name }))}
-                    selected={filterClient}
-                    onChange={v => { setFilterClient(v); setFilterBookingItem([]); setFilterTask([]) }}
-                    className="w-36 max-md:w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1 max-md:w-full">
-                  <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Buchungsposten</span>
-                  <MultiSelectFilter
-                    label="Buchungsposten"
-                    options={allBookingItems.map(b => ({ value: b, label: b }))}
-                    selected={filterBookingItem}
-                    onChange={setFilterBookingItem}
-                    className="w-44 max-md:w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1 max-md:w-full">
-                  <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Aufgabe</span>
-                  <MultiSelectFilter
-                    label="Aufgabe"
-                    options={allFilterTasks.map(t => ({ value: t.id, label: t.name }))}
-                    selected={filterTask}
-                    onChange={setFilterTask}
-                    className="w-36 max-md:w-full"
-                  />
+                {/* Search + dropdowns grouped so search width = dropdowns row width on desktop */}
+                <div className="flex flex-col gap-2 w-full md:w-auto">
+                  {/* Full-text search */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Datum, Kunde, Projekt, Aufgabe, Buchungsposten, Beschreibung, Code …"
+                      className="pl-9 pr-9 h-9 text-sm w-full max-md:h-11 max-md:text-base"
+                    />
+                    {search && (
+                      <button
+                        onClick={() => setSearch("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {/* Filter dropdowns row */}
+                  <div className="flex gap-3 max-md:flex-col max-md:gap-4">
+                    <div className="flex flex-col gap-1 max-md:w-full">
+                      <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Kunde</span>
+                      <MultiSelectFilter
+                        label="Kunde"
+                        options={clients.map(c => ({ value: c.id, label: c.name }))}
+                        selected={filterClient}
+                        onChange={v => { setFilterClient(v); setFilterBookingItem([]); setFilterTask([]) }}
+                        className="w-36 max-md:w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 max-md:w-full">
+                      <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Buchungsposten</span>
+                      <MultiSelectFilter
+                        label="Buchungsposten"
+                        options={allBookingItems.map(b => ({ value: b, label: b }))}
+                        selected={filterBookingItem}
+                        onChange={setFilterBookingItem}
+                        className="w-44 max-md:w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 max-md:w-full">
+                      <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Aufgabe</span>
+                      <MultiSelectFilter
+                        label="Aufgabe"
+                        options={allFilterTasks.map(t => ({ value: t.id, label: t.name }))}
+                        selected={filterTask}
+                        onChange={setFilterTask}
+                        className="w-36 max-md:w-full"
+                      />
+                    </div>
+                  </div>
                 </div>
                 {filterClient.length > 0 && filterClient.map(id => (
                   <Badge key={id} variant="secondary" className="gap-1 text-xs">
@@ -891,9 +935,9 @@ export default function TimePage() {
                     <button onClick={() => setFilterTask(prev => prev.filter(v => v !== id))} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 ))}
-                {(filterClient.length > 0 || filterBookingItem.length > 0 || filterTask.length > 0) && (
+                {(filterClient.length > 0 || filterBookingItem.length > 0 || filterTask.length > 0 || search) && (
                   <Button variant="ghost" size="sm" className="h-11 text-sm md:h-7 md:text-xs"
-                    onClick={() => { setFilterClient([]); setFilterBookingItem([]); setFilterTask([]) }}>
+                    onClick={() => { setFilterClient([]); setFilterBookingItem([]); setFilterTask([]); setSearch("") }}>
                     Filter zurücksetzen
                   </Button>
                 )}

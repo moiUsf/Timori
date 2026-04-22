@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { FileText, Download } from "lucide-react"
 import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
 import { HauptberichtDialog } from "@/components/reports/hauptbericht-dialog"
+import { DynamischesBerichtDialog } from "@/components/reports/dynamisches-bericht-dialog"
 
 const PLACEHOLDER_REPORTS = [
   { title: "Urlaubsübersicht", description: "Jahresübersicht Urlaub, Krankheit und Schulungen" },
@@ -19,6 +20,7 @@ export default function ReportsPage() {
   const [userId, setUserId] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [hauptberichtOpen, setHauptberichtOpen] = useState(false)
+  const [dynamischOpen, setDynamischOpen] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -76,6 +78,27 @@ export default function ReportsPage() {
           </CardHeader>
         </Card>
 
+        {/* Dynamisches Bericht */}
+        <Card className="hover:bg-muted/30 transition-colors">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <CardTitle className="text-base">Dynamisches Bericht</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Tagesweise kumulierte Stunden nach wählbarer Dimension
+                  </CardDescription>
+                </div>
+              </div>
+              <Button size="sm" onClick={() => setDynamischOpen(true)} disabled={!userId} className="gap-1.5">
+                <Download className="h-3.5 w-3.5" />
+                Erstellen
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+
         {/* Placeholder cards */}
         {PLACEHOLDER_REPORTS.map(r => (
           <Card key={r.title} className="opacity-60">
@@ -109,6 +132,13 @@ export default function ReportsPage() {
           userId={userId}
           open={hauptberichtOpen}
           onOpenChange={setHauptberichtOpen}
+        />
+      )}
+      {userId && (
+        <DynamischesBerichtDialog
+          userId={userId}
+          open={dynamischOpen}
+          onOpenChange={setDynamischOpen}
         />
       )}
     </div>
