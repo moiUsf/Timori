@@ -568,7 +568,7 @@ export default function TimePage() {
                   {bookingItemAutoSet && (
                     <p className="text-xs text-amber-600 font-medium">{t("bookingItemAutoSet")}</p>
                   )}
-                  <Select key={`booking-${bookingItems.length}`} value={form.booking_item_text}
+                  <Select value={form.booking_item_text}
                     onValueChange={(v) => {
                       if (v === "_create_booking_item") {
                         setCreatingBookingItem(true)
@@ -589,6 +589,10 @@ export default function TimePage() {
                         </span>
                       </SelectItem>
                       {bookingItems.length > 0 && <SelectSeparator />}
+                      {/* Render current value as option if not yet in the loaded list (e.g. during clone before list loads) */}
+                      {form.booking_item_text && !bookingItems.some(b => b.name === form.booking_item_text) && (
+                        <SelectItem value={form.booking_item_text}>{form.booking_item_text}</SelectItem>
+                      )}
                       {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -622,7 +626,7 @@ export default function TimePage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div className="space-y-2 col-span-2 md:col-span-1">
                   <Label>{t("project")}</Label>
-                  <Select key={`project-${form.project_id}-${projects.length}`} value={form.project_id || "_none"}
+                  <Select value={form.project_id || "_none"}
                     onValueChange={(v) => {
                       if (v === "_create_project") {
                         setCreatingProject(true)
@@ -655,6 +659,12 @@ export default function TimePage() {
                       </SelectItem>
                       <div className="border-t my-1" />
                       <SelectItem value="_none">{t("noProject")}</SelectItem>
+                      {/* Render current project as option if not yet in the loaded list (e.g. during clone before list loads) */}
+                      {form.project_id && !projects.some(p => p.id === form.project_id) && (
+                        <SelectItem value={form.project_id}>
+                          {entries.find(e => e.project_id === form.project_id)?.project?.name ?? form.project_id}
+                        </SelectItem>
+                      )}
                       {filteredProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       {filteredProjects.length === 0 && projectSearch && (
                         <p className="py-2 text-center text-xs text-muted-foreground">{tCommon("noResults")}</p>
