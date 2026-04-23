@@ -119,7 +119,7 @@
     "errorNoClient": "Veuillez sélectionner un client",
     "errorSave": "Erreur : {message}",
     "overlapTitle": "Chevauchement horaire",
-    "overlapDescription": "Des entrées existent déjà pour ce client sur la même période :",
+    "overlapDescription": "Des entrées existent déjà sur la même période :",
     "overlapQuestion": "Enregistrer quand même ?",
     "overlapSave": "Enregistrer quand même"
   },

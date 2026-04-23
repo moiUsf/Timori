@@ -119,7 +119,7 @@
     "errorNoClient": "Por favor selecciona un cliente",
     "errorSave": "Error: {message}",
     "overlapTitle": "Superposición horaria",
-    "overlapDescription": "Ya existen entradas para este cliente en el mismo rango horario:",
+    "overlapDescription": "Ya existen entradas en el mismo rango horario:",
     "overlapQuestion": "¿Guardar de todas formas?",
     "overlapSave": "Guardar de todas formas"
   },
