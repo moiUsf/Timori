@@ -385,7 +385,6 @@ export default function TimePage() {
       .from("time_entries")
       .select("*, client:clients(*), project:projects(*), task:tasks(*)")
       .eq("user_id", userId)
-      .eq("client_id", form.client_id)
       .eq("date", form.date)
       .lt("time_from", form.time_to)
       .gt("time_to", form.time_from)
@@ -1093,7 +1092,13 @@ export default function TimePage() {
                     <span className="font-mono font-medium">{c.time_from}–{c.time_to}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
-                    {c.project?.name && <span>{c.project.name}</span>}
+                    {c.client?.name && <span className="font-medium text-foreground">{c.client.name}</span>}
+                    {c.project?.name && (
+                      <>
+                        {c.client?.name && <span>·</span>}
+                        <span>{c.project.name}</span>
+                      </>
+                    )}
                     {c.task?.name && (
                       <>
                         <span>·</span>

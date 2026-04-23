@@ -119,7 +119,7 @@
     "errorNoClient": "يرجى اختيار عميل",
     "errorSave": "خطأ: {message}",
     "overlapTitle": "تداخل الوقت",
-    "overlapDescription": "توجد إدخالات لهذا العميل في نفس النطاق الزمني:",
+    "overlapDescription": "توجد إدخالات في نفس النطاق الزمني:",
     "overlapQuestion": "حفظ على أي حال؟",
     "overlapSave": "حفظ على أي حال"
   },

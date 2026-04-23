@@ -119,7 +119,7 @@
     "errorNoClient": "Please select a client",
     "errorSave": "Error: {message}",
     "overlapTitle": "Time Overlap",
-    "overlapDescription": "There are already entries for this client in the same time range:",
+    "overlapDescription": "There are already entries in the same time range:",
     "overlapQuestion": "Save anyway?",
     "overlapSave": "Save anyway"
   },

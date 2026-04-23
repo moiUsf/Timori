@@ -119,7 +119,7 @@
     "errorNoClient": "Bitte Kunde auswählen",
     "errorSave": "Fehler: {message}",
     "overlapTitle": "Zeitüberschneidung",
-    "overlapDescription": "Für diesen Kunden existieren bereits Einträge im gleichen Zeitraum:",
+    "overlapDescription": "Es existieren bereits Einträge im gleichen Zeitraum:",
     "overlapQuestion": "Trotzdem speichern?",
     "overlapSave": "Trotzdem speichern"
   },
