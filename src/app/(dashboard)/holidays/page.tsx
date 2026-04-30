@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { toLocalDateStr } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { getHolidays, type GermanState } from "@/lib/holidays"
@@ -35,7 +36,7 @@ export default async function HolidaysPage() {
     byMonth[m].push(h)
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = toLocalDateStr(new Date())
 
   return (
     <div className="space-y-6">

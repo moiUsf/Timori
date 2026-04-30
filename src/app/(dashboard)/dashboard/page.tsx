@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock, Umbrella, TrendingUp, CalendarDays, Download, X, Palmtree } from "lucide-react"
-import { formatHours, formatMonthYear } from "@/lib/utils"
+import { formatHours, formatMonthYear, toLocalDateStr } from "@/lib/utils"
 import { getHolidays } from "@/lib/holidays"
 import type { GermanState } from "@/lib/holidays"
 import type { Client, UserProfile, VacationEntry } from "@/types/database"
@@ -39,7 +39,7 @@ export default function DashboardPage() {
   const year = now.getFullYear()
   const month = now.getMonth() + 1
   const startOfMonth = `${year}-${month.toString().padStart(2, "0")}-01`
-  const endOfMonth = new Date(year, month, 0).toISOString().slice(0, 10)
+  const endOfMonth = toLocalDateStr(new Date(year, month, 0))
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [clientStats, setClientStats] = useState<ClientStat[]>([])

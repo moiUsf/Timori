@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { ActiveTimer, Client, Project, Task } from "@/types/database"
 import { useTimerDisplay } from "@/lib/timer-display-context"
 import type { TimerFieldItem } from "@/lib/timer-display-context"
-import { formatDuration } from "@/lib/utils"
+import { formatDuration, toLocalDateStr } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { StartTimerDialog } from "./start-timer-dialog"
 import { EditTimerDialog } from "./edit-timer-dialog"
@@ -106,7 +106,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
     // Calculate time_from and time_to
     const timeFrom = startedAt.toTimeString().slice(0, 5)
     const timeTo = now.toTimeString().slice(0, 5)
-    const date = startedAt.toISOString().slice(0, 10)
+    const date = toLocalDateStr(startedAt)
 
     const grossMs = now.getTime() - startedAt.getTime()
     const grossHours = grossMs / 1000 / 3600

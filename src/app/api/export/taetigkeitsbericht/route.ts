@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import * as XLSX from "xlsx"
+import { toLocalDateStr } from "@/lib/utils"
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
   const month = Math.max(1, Math.min(12, parseInt(searchParams.get("month") ?? "") || new Date().getMonth() + 1))
 
   const startDate = `${year}-${month.toString().padStart(2, "0")}-01`
-  const endDate = new Date(year, month, 0).toISOString().slice(0, 10)
+  const endDate = toLocalDateStr(new Date(year, month, 0))
 
   const [profileRes, entriesRes] = await Promise.all([
     supabase.from("users_profile").select("*").eq("user_id", user.id).single(),

@@ -1,4 +1,5 @@
 import type { VacationEntry } from "@/types/database"
+import { toLocalDateStr } from "@/lib/utils"
 
 export interface HauptberichtRow {
   projektNr: string
@@ -49,7 +50,7 @@ function countWorkingDays(year: number, month: number): number {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function buildHauptberichtData(supabase: any, userId: string, year: number, month: number): Promise<HauptberichtData> {
   const first = `${year}-${month.toString().padStart(2, "0")}-01`
-  const last = new Date(year, month, 0).toISOString().slice(0, 10)
+  const last = toLocalDateStr(new Date(year, month, 0))
   const daysInMonth = new Date(year, month, 0).getDate()
 
   const [profileRes, entriesRes, vacRes] = await Promise.all([
@@ -117,7 +118,7 @@ export async function buildHauptberichtData(supabase: any, userId: string, year:
   const annualEntries = vacEntries.filter(v => v.type === "annual")
   const yearStart = `${year}-01-01`
   // "bereits erhalten": working days in annual vacation entries before this month
-  const prevMonthLast = new Date(year, month - 1, 0).toISOString().slice(0, 10)
+  const prevMonthLast = toLocalDateStr(new Date(year, month - 1, 0))
   const vacationTakenYTD = annualEntries.reduce((s, v) => s + daysInRange(v.date_from, v.date_to, yearStart, prevMonthLast), 0)
   // "lfd. Mon.": working days in annual vacation entries within this month
   const vacationThisMonth = annualEntries.reduce((s, v) => s + daysInRange(v.date_from, v.date_to, first, last), 0)

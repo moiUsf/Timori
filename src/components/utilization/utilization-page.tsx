@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
+import { toLocalDateStr } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Plus, Search, GripVertical } from "lucide-react"
 import { toast } from "sonner"
@@ -31,7 +32,7 @@ function getDateRange(period: "total" | "monthly" | "range", selectedMonth: stri
   const [y, m] = selectedMonth.split("-").map(Number)
   return {
     gte: `${y}-${String(m).padStart(2, "0")}-01`,
-    lte: new Date(y, m, 0).toISOString().slice(0, 10),
+    lte: toLocalDateStr(new Date(y, m, 0)),
   }
 }
 
@@ -148,7 +149,7 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
 
   async function fetchCarryOver(tile: UtilizationTile): Promise<TileResult> {
     const [year, month] = selectedMonth.split("-").map(Number)
-    const endDate = new Date(year, month, 0).toISOString().slice(0, 10)
+    const endDate = toLocalDateStr(new Date(year, month, 0))
 
     let q = supabase
       .from("time_entries")

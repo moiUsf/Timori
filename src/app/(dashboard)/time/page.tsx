@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { formatHours, formatDate, hoursFromTimeRange, cn } from "@/lib/utils"
+import { formatHours, formatDate, hoursFromTimeRange, cn, toLocalDateStr } from "@/lib/utils"
 import { Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Copy, AlertTriangle, FileText, Search, X } from "lucide-react"
 import { TimerPlay } from "@/components/icons/timer-play"
 import { toast } from "sonner"
@@ -33,7 +33,7 @@ const THIS_YEAR = new Date().getFullYear()
 const YEAR_RANGE = Array.from({ length: 7 }, (_, i) => THIS_YEAR - 5 + i)
 
 const emptyForm = () => ({
-  date: new Date().toISOString().slice(0, 10),
+  date: toLocalDateStr(new Date()),
   time_from: "09:00",
   time_to: "17:00",
   break_min: "0",
@@ -99,7 +99,7 @@ export default function TimePage() {
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
   const startOfMonth = `${year}-${month.toString().padStart(2, "0")}-01`
-  const endOfMonth = new Date(year, month, 0).toISOString().slice(0, 10)
+  const endOfMonth = toLocalDateStr(new Date(year, month, 0))
 
   const loadEntries = useCallback(async () => {
     const { data } = await supabase
@@ -203,7 +203,7 @@ export default function TimePage() {
   function openClone(entry: EntryWithRelations) {
     setEditingEntry(null)
     setForm({
-      date: new Date().toISOString().slice(0, 10),
+      date: toLocalDateStr(new Date()),
       time_from: entry.time_from,
       time_to: entry.time_to,
       break_min: String(entry.break_min),
