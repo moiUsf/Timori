@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs"
+import { toLocalDateStr } from "@/lib/utils"
 
 export type DynamischeGruppierung = "buchungsposten" | "projekt" | "aufgabe" | "kunde"
 
@@ -40,7 +41,7 @@ export async function buildDynamischesBerichtData(
   clientIds?: string[],  // undefined or empty = alle Kunden
 ): Promise<{ rows: DynamischeBerichtRow[]; monthLabel: string; mitarbeiter: string }> {
   const first = `${year}-${month.toString().padStart(2, "0")}-01`
-  const last = new Date(year, month, 0).toISOString().slice(0, 10)
+  const last = toLocalDateStr(new Date(year, month, 0))
 
   let entriesQuery = supabase
     .from("time_entries")

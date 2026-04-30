@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { formatDate } from "@/lib/utils"
+import { formatDate, toLocalDateStr } from "@/lib/utils"
 import { Plus, Trash2, ChevronRight, ChevronDown, Receipt } from "lucide-react"
 import { toast } from "sonner"
 
@@ -62,7 +62,7 @@ export default function ExpensesPage() {
   const [selectedReportId, setSelectedReportId] = useState("")
   const [reportForm, setReportForm] = useState({ month: String(new Date().getMonth() + 1), year: String(new Date().getFullYear()), travel_nr: "" })
   const [itemForm, setItemForm] = useState({
-    date: new Date().toISOString().slice(0, 10),
+    date: toLocalDateStr(new Date()),
     category: "hotel_inland",
     description: "",
     amount: "",

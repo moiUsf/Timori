@@ -32,6 +32,13 @@ export function hoursFromTimeRange(
   return Math.max(0, totalMin / 60)
 }
 
+export function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = (date.getMonth() + 1).toString().padStart(2, "0")
+  const d = date.getDate().toString().padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
 export function getCurrentMonthRange() {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), 1)

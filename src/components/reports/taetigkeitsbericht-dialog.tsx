@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
+import { toLocalDateStr } from "@/lib/utils"
 import type { Client } from "@/types/database"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -100,7 +101,7 @@ export function TaetigkeitsberichtDialog({
     setLoadingKonto(true)
     const [year, mon] = month.split("-").map(Number)
     const first = `${year}-${mon.toString().padStart(2, "0")}-01`
-    const last = new Date(year, mon, 0).toISOString().slice(0, 10)
+    const last = toLocalDateStr(new Date(year, mon, 0))
     supabase.from("time_entries")
       .select("booking_item_text, net_h, project:projects(name)")
       .eq("user_id", userId).eq("client_id", clientId)
@@ -188,7 +189,7 @@ export function TaetigkeitsberichtDialog({
     try {
       const [year, mon] = month.split("-").map(Number)
       const first = `${year}-${mon.toString().padStart(2, "0")}-01`
-      const last = new Date(year, mon, 0).toISOString().slice(0, 10)
+      const last = toLocalDateStr(new Date(year, mon, 0))
 
       const [entriesRes, profileRes, clientRes] = await Promise.all([
         supabase.from("time_entries")
