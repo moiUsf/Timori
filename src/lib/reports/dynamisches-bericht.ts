@@ -26,6 +26,7 @@ const THIN: Partial<ExcelJS.Borders> = {
   bottom: { style: "thin" }, right: { style: "thin" },
 }
 const GRAY: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCDCDC" } }
+const DAYTOTAL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFB8CCE4" } }
 
 function formatDate(iso: string): string {
   return `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`
@@ -129,39 +130,63 @@ export async function generateDynamischesBerichtExcel(
   headerCell(hRow.getCell(2), groupLabel)
   headerCell(hRow.getCell(3), "Stunden", true)
 
-  // Data rows — color changes per day, not per row
-  // Even dayIndex (0, 2, 4 …) = gray; odd = white
-  let rowIdx = 3
-  let dayIndex = -1
-  let currentDate = ""
-
+  // Group rows by date (order preserved — rows is pre-sorted)
+  const byDate = new Map<string, DynamischeBerichtRow[]>()
   for (const row of rows) {
-    if (row.date !== currentDate) {
-      dayIndex++
-      currentDate = row.date
-    }
+    if (!byDate.has(row.date)) byDate.set(row.date, [])
+    byDate.get(row.date)!.push(row)
+  }
+
+  let rowIdx = 3
+  let dayIndex = 0
+
+  for (const [date, dayRows] of byDate) {
     const fill: ExcelJS.Fill | undefined = dayIndex % 2 === 0 ? GRAY : undefined
 
-    const exRow = ws.getRow(rowIdx)
+    for (const row of dayRows) {
+      const exRow = ws.getRow(rowIdx)
 
-    const dateCell = exRow.getCell(1)
-    dateCell.value = formatDate(row.date)
-    dateCell.border = THIN
-    if (fill) dateCell.fill = fill
+      const dateCell = exRow.getCell(1)
+      dateCell.value = formatDate(date)
+      dateCell.border = THIN
+      if (fill) dateCell.fill = fill
 
-    const groupCell = exRow.getCell(2)
-    groupCell.value = row.groupValue
-    groupCell.border = THIN
-    if (fill) groupCell.fill = fill
+      const groupCell = exRow.getCell(2)
+      groupCell.value = row.groupValue
+      groupCell.border = THIN
+      if (fill) groupCell.fill = fill
 
-    const hoursCell = exRow.getCell(3)
-    hoursCell.value = Math.round(row.hours * 100) / 100
-    hoursCell.numFmt = "0.00"
-    hoursCell.border = THIN
-    hoursCell.alignment = { horizontal: "right" }
-    if (fill) hoursCell.fill = fill
+      const hoursCell = exRow.getCell(3)
+      hoursCell.value = Math.round(row.hours * 100) / 100
+      hoursCell.numFmt = "0.00"
+      hoursCell.border = THIN
+      hoursCell.alignment = { horizontal: "right" }
+      if (fill) hoursCell.fill = fill
 
+      rowIdx++
+    }
+
+    // Tagessumme
+    const dayTotal = Math.round(dayRows.reduce((s, r) => s + r.hours, 0) * 100) / 100
+    const tRow = ws.getRow(rowIdx)
+    const tDate = tRow.getCell(1)
+    tDate.fill = DAYTOTAL
+    tDate.border = THIN
+    const tLabel = tRow.getCell(2)
+    tLabel.value = "Tagessumme"
+    tLabel.font = { bold: true }
+    tLabel.fill = DAYTOTAL
+    tLabel.border = THIN
+    const tHours = tRow.getCell(3)
+    tHours.value = dayTotal
+    tHours.numFmt = "0.00"
+    tHours.font = { bold: true }
+    tHours.fill = DAYTOTAL
+    tHours.border = THIN
+    tHours.alignment = { horizontal: "right" }
     rowIdx++
+
+    dayIndex++
   }
 
   // Summenzeile
