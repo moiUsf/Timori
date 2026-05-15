@@ -72,6 +72,7 @@ export function DashboardShell({
           if (!blob) return
           downloadBlob(blob, filename)
           markDone()
+          toast.success(`Backup heruntergeladen: ${filename}`)
           return
         }
 
@@ -79,7 +80,11 @@ export function DashboardShell({
         const blob = await fetchBlob()
         if (!blob) return
         const saved = await writeToFolder(handle, blob, filename)
-        if (saved) { markDone(); return }
+        if (saved) {
+          markDone()
+          toast.success(`Backup gespeichert in „${handle.name}"`)
+          return
+        }
 
         // Permission not granted — prompt user, fall back to download after 30 min
         const pendingRaw = localStorage.getItem(PENDING_KEY)

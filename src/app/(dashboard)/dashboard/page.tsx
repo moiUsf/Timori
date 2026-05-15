@@ -243,6 +243,7 @@ export default function DashboardPage() {
         }
       } else {
         downloadBlob(blob, filename)
+        toast.success(`Backup heruntergeladen: ${filename}`)
       }
 
       const iso = new Date().toISOString()

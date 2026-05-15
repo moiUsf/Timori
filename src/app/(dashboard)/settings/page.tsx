@@ -180,7 +180,7 @@ export default function SettingsPage() {
         const iso = new Date().toISOString()
         setLastBackupAt(iso)
         localStorage.setItem("lastBackupAt", iso)
-        toast.success("Backup erstellt")
+        toast.success(`Backup heruntergeladen: ${filename}`)
       }
     } catch {
       toast.error("Backup fehlgeschlagen")
