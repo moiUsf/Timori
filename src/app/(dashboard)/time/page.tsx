@@ -95,6 +95,9 @@ export default function TimePage() {
   const [filterClient, setFilterClient] = useState<string[]>([])
   const [filterBookingItem, setFilterBookingItem] = useState<string[]>([])
   const [filterTask, setFilterTask] = useState<string[]>([])
+  const [filterVermittler, setFilterVermittler] = useState<string[]>([])
+  const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set())
+  const [bulkVermittler, setBulkVermittler] = useState("")
   const [timerDialogOpen, setTimerDialogOpen] = useState(false)
   const [timerInitialValues, setTimerInitialValues] = useState<TimerInitialValues | undefined>()
 
@@ -412,11 +415,25 @@ export default function TimePage() {
     loadEntries()
   }
 
+  async function handleBulkVermittlerChange() {
+    if (selectedEntries.size === 0) return
+    const ids = [...selectedEntries]
+    const { error } = await supabase.from("time_entries")
+      .update({ vermittler_booking_item_text: bulkVermittler })
+      .in("id", ids)
+    if (error) { toast.error("Fehler: " + error.message); return }
+    toast.success(`${ids.length} Eintrag/Einträge aktualisiert`)
+    setSelectedEntries(new Set())
+    setBulkVermittler("")
+    loadEntries()
+  }
+
   // Filter entries (AND-logic: multi-select filters + full-text search)
   const displayEntries = entries.filter(e => {
     if (filterClient.length > 0 && !filterClient.includes(e.client_id)) return false
     if (filterBookingItem.length > 0 && !filterBookingItem.includes(e.booking_item_text ?? "")) return false
     if (filterTask.length > 0 && (!e.task_id || !filterTask.includes(e.task_id))) return false
+    if (filterVermittler.length > 0 && !filterVermittler.includes(e.vermittler_booking_item_text ?? "")) return false
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       const net = String(Math.round(e.net_h * 100) / 100)
@@ -447,6 +464,10 @@ export default function TimePage() {
       acc.push({ id: e.task_id, name: e.task.name })
     return acc
   }, [])
+
+  const allVermittlerItems = [...new Set(
+    entries.map(e => e.vermittler_booking_item_text?.trim() ?? "").filter(Boolean)
+  )]
 
   // Generic grouping function → flat EntryGroup structure
   interface EntryGroup { key: string; label: string; totalNet: number; entries: EntryWithRelations[] }
@@ -958,6 +979,16 @@ export default function TimePage() {
                         className="w-36 max-md:w-full"
                       />
                     </div>
+                    <div className="flex flex-col gap-1 max-md:w-full">
+                      <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Vermittler-BP</span>
+                      <MultiSelectFilter
+                        label="Vermittler-BP"
+                        options={allVermittlerItems.map(v => ({ value: v, label: v }))}
+                        selected={filterVermittler}
+                        onChange={setFilterVermittler}
+                        className="w-48 max-md:w-full"
+                      />
+                    </div>
                   </div>
                 </div>
                 {filterClient.length > 0 && filterClient.map(id => (
@@ -978,13 +1009,53 @@ export default function TimePage() {
                     <button onClick={() => setFilterTask(prev => prev.filter(v => v !== id))} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 ))}
-                {(filterClient.length > 0 || filterBookingItem.length > 0 || filterTask.length > 0 || search) && (
+                {filterVermittler.length > 0 && filterVermittler.map(v => (
+                  <Badge key={v} variant="secondary" className="gap-1 text-xs">
+                    ↳ {v}
+                    <button onClick={() => setFilterVermittler(prev => prev.filter(x => x !== v))} className="ml-1 hover:text-destructive">×</button>
+                  </Badge>
+                ))}
+                {(filterClient.length > 0 || filterBookingItem.length > 0 || filterTask.length > 0 || filterVermittler.length > 0 || search) && (
                   <Button variant="ghost" size="sm" className="h-11 text-sm md:h-7 md:text-xs"
-                    onClick={() => { setFilterClient([]); setFilterBookingItem([]); setFilterTask([]); setSearch("") }}>
+                    onClick={() => { setFilterClient([]); setFilterBookingItem([]); setFilterTask([]); setFilterVermittler([]); setSearch("") }}>
                     Filter zurücksetzen
                   </Button>
                 )}
               </div>
+
+              {selectedEntries.size > 0 && (
+                <div className="px-4 py-2 border-b bg-muted/50 flex flex-wrap items-center gap-3 md:px-6">
+                  <span className="text-sm font-medium">{selectedEntries.size} Eintrag/Einträge ausgewählt</span>
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                    onClick={() => setSelectedEntries(new Set())}
+                  >
+                    Auswahl aufheben
+                  </button>
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                    onClick={() => setSelectedEntries(new Set(displayEntries.map(e => e.id)))}
+                  >
+                    Alle {displayEntries.length} auswählen
+                  </button>
+                  <div className="flex items-center gap-2 ml-auto flex-wrap">
+                    <Select value={bulkVermittler || "_none"} onValueChange={v => setBulkVermittler(v === "_none" ? "" : v)}>
+                      <SelectTrigger className="h-8 text-sm w-56">
+                        <SelectValue placeholder="Vermittler-BP wählen..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">— Keiner / entfernen —</SelectItem>
+                        {allVermittlerItems.map(v => (
+                          <SelectItem key={v} value={v}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" onClick={handleBulkVermittlerChange} className="h-8">
+                      Anwenden
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Grouped entries */}
               <div>
@@ -1003,6 +1074,19 @@ export default function TimePage() {
                           <div className="lg:hidden px-4 py-3">
                             {/* Row 1: short date · time range · hours */}
                             <div className="flex items-center gap-2 flex-wrap pb-2 mb-2 border-b border-border/30">
+                              <input
+                                type="checkbox"
+                                className="h-5 w-5 cursor-pointer accent-primary shrink-0"
+                                checked={selectedEntries.has(entry.id)}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => {
+                                  setSelectedEntries(prev => {
+                                    const next = new Set(prev)
+                                    if (e.target.checked) next.add(entry.id); else next.delete(entry.id)
+                                    return next
+                                  })
+                                }}
+                              />
                               <span className="text-sm font-medium tabular-nums">{fShortDate(entry.date)}</span>
                               <span className="text-sm text-muted-foreground font-mono">{fTime(entry.time_from)}–{fTime(entry.time_to)}</span>
                               <span className="ml-auto text-base font-bold tabular-nums">{formatHours(entry.net_h)}</span>
@@ -1053,6 +1137,19 @@ export default function TimePage() {
                           </div>
                           {/* Desktop layout — unchanged */}
                           <div className="hidden lg:flex items-start gap-3 px-6 py-3">
+                            <input
+                              type="checkbox"
+                              className="mt-1 shrink-0 h-4 w-4 cursor-pointer accent-primary"
+                              checked={selectedEntries.has(entry.id)}
+                              onClick={e => e.stopPropagation()}
+                              onChange={e => {
+                                setSelectedEntries(prev => {
+                                  const next = new Set(prev)
+                                  if (e.target.checked) next.add(entry.id); else next.delete(entry.id)
+                                  return next
+                                })
+                              }}
+                            />
                             <div className="w-20 shrink-0 text-sm text-muted-foreground pt-0.5">
                               {formatDate(entry.date)}
                             </div>
