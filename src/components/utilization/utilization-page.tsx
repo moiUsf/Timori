@@ -53,7 +53,12 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [editingTile, setEditingTile] = useState<UtilizationTile | null>(null)
   const [search, setSearch] = useState("")
-  const [clientFilter, setClientFilter] = useState<string | null>(null)
+  const [clientFilter, setClientFilter] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("utilization_client_filter")
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
 
   const hasMonthlyTile = tiles.some((tile) => tile.period === "monthly")
 
@@ -131,7 +136,7 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
     let result = tiles
     const q = search.trim().toLowerCase()
     if (q) result = result.filter((t) => t.entity_name.toLowerCase().includes(q))
-    if (clientFilter !== null) result = result.filter((t) => (t.client_name ?? "") === clientFilter)
+    if (clientFilter.length > 0) result = result.filter((t) => clientFilter.includes(t.client_name ?? ""))
     return result
   }, [tiles, search, clientFilter])
 
@@ -305,28 +310,40 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
           {clientNames.length > 1 && (
             <div className="flex flex-wrap gap-1">
               <button
-                onClick={() => setClientFilter(null)}
+                onClick={() => {
+                  setClientFilter([])
+                  localStorage.setItem("utilization_client_filter", JSON.stringify([]))
+                }}
                 className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
-                  clientFilter === null
+                  clientFilter.length === 0
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-background text-muted-foreground border-border hover:bg-accent"
                 }`}
               >
                 {t("allClients")}
               </button>
-              {clientNames.map((name) => (
-                <button
-                  key={name || "__no_client__"}
-                  onClick={() => setClientFilter(clientFilter === name ? null : name)}
-                  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
-                    clientFilter === name
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background text-muted-foreground border-border hover:bg-accent"
-                  }`}
-                >
-                  {name || t("noClient")}
-                </button>
-              ))}
+              {clientNames.map((name) => {
+                const active = clientFilter.includes(name)
+                return (
+                  <button
+                    key={name || "__no_client__"}
+                    onClick={() => {
+                      const next = active
+                        ? clientFilter.filter((n) => n !== name)
+                        : [...clientFilter, name]
+                      setClientFilter(next)
+                      localStorage.setItem("utilization_client_filter", JSON.stringify(next))
+                    }}
+                    className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:bg-accent"
+                    }`}
+                  >
+                    {name || t("noClient")}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
