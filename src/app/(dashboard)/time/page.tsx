@@ -98,7 +98,7 @@ export default function TimePage() {
   const [filterVermittler, setFilterVermittler] = useState<string[]>([])
   const [selectedEntries, setSelectedEntries] = useState<Set<string>>(new Set())
   const [bulkVermittler, setBulkVermittler] = useState("")
-  const [linkedVermittlerOptions, setLinkedVermittlerOptions] = useState<string[]>([])
+  const [bulkVermittlerFromLinks, setBulkVermittlerFromLinks] = useState<string[]>([])
   const [timerDialogOpen, setTimerDialogOpen] = useState(false)
   const [timerInitialValues, setTimerInitialValues] = useState<TimerInitialValues | undefined>()
 
@@ -467,16 +467,21 @@ export default function TimePage() {
   }, [])
 
   const fromEntries = entries.map(e => e.vermittler_booking_item_text?.trim() ?? "").filter(Boolean)
-  const allVermittlerItems = [...new Set([...fromEntries, ...linkedVermittlerOptions])]
+  const allVermittlerItems = [...new Set([...fromEntries, ...bulkVermittlerFromLinks])]
 
   useEffect(() => {
-    if (!userId || filterClient.length === 0) { setLinkedVermittlerOptions([]); return }
-    Promise.all(filterClient.map(cid => loadBookingItemOptions(supabase, userId, cid)))
+    if (selectedEntries.size === 0 || !userId) { setBulkVermittlerFromLinks([]); return }
+    const selectedList = entries.filter(e => selectedEntries.has(e.id))
+    const clientIds = [...new Set(selectedList.map(e => e.client_id).filter(Boolean))]
+    const bookingNames = [...new Set(selectedList.map(e => e.booking_item_text).filter(Boolean))]
+    Promise.all(clientIds.map(cid => loadBookingItemOptions(supabase, userId, cid)))
       .then(results => {
-        const names = results.flat().flatMap(b => b.linkedVermittlerItemNames ?? [])
-        setLinkedVermittlerOptions([...new Set(names)])
+        const names = results.flat()
+          .filter(b => b.kind === "own" && bookingNames.includes(b.name))
+          .flatMap(b => b.linkedVermittlerItemNames ?? [])
+        setBulkVermittlerFromLinks([...new Set(names)])
       })
-  }, [filterClient, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedEntries, userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Generic grouping function → flat EntryGroup structure
   interface EntryGroup { key: string; label: string; totalNet: number; entries: EntryWithRelations[] }
