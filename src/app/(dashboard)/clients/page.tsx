@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { Client, Project, Task, BookingItem } from "@/types/database"
+import type { Client, Project, Task, BookingItem, BookingItemLinkView } from "@/types/database"
+import { loadBookingItemLinks } from "@/lib/booking-items"
+import { VermittlerLinksEditor } from "@/components/clients/vermittler-links-editor"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,6 +34,7 @@ export default function ClientsPage() {
   const [filterClientId, setFilterClientId] = useState("_all")
   const [allTasks, setAllTasks] = useState<TaskWithProject[]>([])
   const [allBookings, setAllBookings] = useState<BookingItem[]>([])
+  const [bookingLinks, setBookingLinks] = useState<BookingItemLinkView[]>([])
   const [flatProjects, setFlatProjects] = useState<Project[]>([])
   const [taskSearch, setTaskSearch] = useState("")
   const [projectSearch, setProjectSearch] = useState("")
@@ -61,6 +64,8 @@ export default function ClientsPage() {
     budget_carry_over: false,
     budget_date_from: "",
     budget_date_to: "",
+    is_vermittler: false,
+    vermittler_client_id: "",
   })
   const [projectForm, setProjectForm] = useState({ name: "", project_nr: "", sub_project: "", category: "", hourly_rate: "" })
   const [taskForm, setTaskForm] = useState({ name: "", description: "", project_id: "", client_id: "", default_booking_item_id: "" })
@@ -80,6 +85,10 @@ export default function ClientsPage() {
     setAllBookings(data ?? [])
   }, [supabase])
 
+  const loadBookingLinks = useCallback(async (uid: string) => {
+    setBookingLinks(await loadBookingItemLinks(supabase, uid))
+  }, [supabase])
+
   const loadFlatProjects = useCallback(async (uid: string) => {
     const { data } = await supabase.from("projects").select("*, client:clients(name)").eq("user_id", uid).eq("active", true).order("name")
     setFlatProjects(data ?? [])
@@ -94,10 +103,11 @@ export default function ClientsPage() {
         loadClients(user.id)
         loadAllTasks(user.id)
         loadAllBookings(user.id)
+        loadBookingLinks(user.id)
         loadFlatProjects(user.id)
       }
     })
-  }, [supabase, loadAllTasks, loadAllBookings, loadFlatProjects])
+  }, [supabase, loadAllTasks, loadAllBookings, loadBookingLinks, loadFlatProjects])
 
   async function loadClients(uid: string) {
     const { data } = await supabase.from("clients").select("*").eq("user_id", uid).order("name")
@@ -194,6 +204,10 @@ export default function ClientsPage() {
       budget_carry_over: hasBudget && clientForm.budget_period === "monthly" ? clientForm.budget_carry_over : null,
       budget_date_from: hasBudget && clientForm.budget_period === "range" ? clientForm.budget_date_from : null,
       budget_date_to: hasBudget && clientForm.budget_period === "range" ? clientForm.budget_date_to : null,
+      is_vermittler: clientForm.is_vermittler,
+      vermittler_client_id: !clientForm.is_vermittler && clientForm.vermittler_client_id
+        ? clientForm.vermittler_client_id
+        : null,
     }
     if (editingClient) {
       const { error } = await supabase.from("clients").update(payload).eq("id", editingClient.id)
@@ -214,6 +228,7 @@ export default function ClientsPage() {
       name: "", client_nr: "", country: "DE", default_remote: false,
       budget_value: "", budget_unit: "MT", budget_period: "monthly",
       budget_carry_over: false, budget_date_from: "", budget_date_to: "",
+      is_vermittler: false, vermittler_client_id: "",
     })
   }
 
@@ -281,6 +296,7 @@ export default function ClientsPage() {
     setBookingForm({ name: "", description: "", client_id: "" })
     if (bookingForm.client_id) loadProjects(bookingForm.client_id)
     loadAllBookings(userId)
+    loadBookingLinks(userId)
   }
 
   async function deleteTask(id: string, projectId: string | null) {
@@ -295,6 +311,7 @@ export default function ClientsPage() {
     toast.success("Buchungsposten gelöscht")
     if (clientId) loadProjects(clientId)
     loadAllBookings(userId)
+    loadBookingLinks(userId)
   }
 
   async function deleteClient(id: string) {
@@ -509,6 +526,8 @@ export default function ClientsPage() {
                             budget_carry_over: client.budget_carry_over ?? false,
                             budget_date_from: client.budget_date_from ?? "",
                             budget_date_to: client.budget_date_to ?? "",
+                            is_vermittler: client.is_vermittler ?? false,
+                            vermittler_client_id: client.vermittler_client_id ?? "",
                           })
                           setClientDialog(true)
                         }}>
@@ -538,6 +557,16 @@ export default function ClientsPage() {
                                 <div className="flex-1 min-w-0">
                                   <span className="text-sm font-mono">{b.name}</span>
                                   {b.description && <span className="text-xs text-muted-foreground ml-2">— {b.description}</span>}
+                                  {bookingLinks.filter((l) => l.customerBookingItemId === b.id).map((l) => (
+                                    <p key={l.linkId} className="text-xs text-muted-foreground">
+                                      {l.vermittlerClientName} · {l.vermittlerBookingItemName}
+                                    </p>
+                                  ))}
+                                  {bookingLinks.filter((l) => l.vermittlerBookingItemId === b.id).map((l) => (
+                                    <p key={l.linkId} className="text-xs text-muted-foreground">
+                                      verknüpft mit {l.customerClientName} / {l.customerBookingItemName}
+                                    </p>
+                                  ))}
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                   onClick={e => e.stopPropagation()}>
@@ -822,6 +851,16 @@ export default function ClientsPage() {
                           {clientName && <p className="text-xs text-muted-foreground">👤 {clientName}</p>}
                           {!b.client_id && <p className="text-xs text-muted-foreground">Ohne Kundenzuordnung</p>}
                           {b.description && <p className="text-xs text-muted-foreground truncate">{b.description}</p>}
+                          {bookingLinks.filter((l) => l.customerBookingItemId === b.id).map((l) => (
+                            <p key={l.linkId} className="text-xs text-muted-foreground">
+                              Vermittler: {l.vermittlerClientName} · {l.vermittlerBookingItemName}
+                            </p>
+                          ))}
+                          {bookingLinks.filter((l) => l.vermittlerBookingItemId === b.id).map((l) => (
+                            <p key={l.linkId} className="text-xs text-muted-foreground">
+                              verknüpft mit {l.customerClientName} / {l.customerBookingItemName}
+                            </p>
+                          ))}
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                           onClick={e => e.stopPropagation()}>
@@ -965,6 +1004,42 @@ export default function ClientsPage() {
               </div>
             )}
           </div>
+          {/* Vermittler-Einstellungen */}
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="is_vermittler">Dieser Kunde ist ein Vermittler</Label>
+              <Switch
+                id="is_vermittler"
+                checked={clientForm.is_vermittler}
+                onCheckedChange={(v) =>
+                  setClientForm({ ...clientForm, is_vermittler: v, vermittler_client_id: "" })
+                }
+              />
+            </div>
+            {!clientForm.is_vermittler && (
+              <div className="space-y-1.5">
+                <Label>Standard-Vermittler</Label>
+                <Select
+                  value={clientForm.vermittler_client_id || "_none"}
+                  onValueChange={(v) =>
+                    setClientForm({ ...clientForm, vermittler_client_id: v === "_none" ? "" : v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Kein Vermittler" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— Kein Vermittler —</SelectItem>
+                    {clients
+                      .filter((c) => c.is_vermittler && c.id !== editingClient?.id)
+                      .map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
           <DialogFooter className="flex-row justify-between sm:justify-between">
             {editingClient
               ? <Button variant="destructive" onClick={() => deleteClient(editingClient.id)}><Trash2 className="h-4 w-4 mr-1.5" />Löschen</Button>
@@ -1085,6 +1160,23 @@ export default function ClientsPage() {
                 </SelectContent>
               </Select>
             </div>
+            {editingBooking && bookingForm.client_id && !bookingLinks.some((l) => l.vermittlerBookingItemId === editingBooking.id) && (
+              <VermittlerLinksEditor
+                userId={userId}
+                customerBookingItemId={editingBooking.id}
+                customerClientId={bookingForm.client_id}
+                links={bookingLinks.filter((l) => l.customerBookingItemId === editingBooking.id)}
+                clients={clients}
+                defaultVermittlerClientId={
+                  clients.find((c) => c.id === bookingForm.client_id)?.vermittler_client_id ?? undefined
+                }
+                onChanged={() => {
+                  loadBookingLinks(userId)
+                  loadAllBookings(userId)
+                  loadProjects(bookingForm.client_id)
+                }}
+              />
+            )}
           </div>
           <DialogFooter className="flex-row justify-between sm:justify-between">
             {editingBooking
