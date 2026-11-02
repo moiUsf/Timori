@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import type { UtilizationTile, UtilizationConfig, Client } from "@/types/database"
+import { loadBookingItemOptions } from "@/lib/booking-items"
 
 interface AddTileDialogProps {
   open: boolean
@@ -130,15 +131,26 @@ export function AddTileDialog({ open, hoursPerDay, userId, utilConfig, initialTi
             sub: task.project?.name,
           }))
         )
+      } else if (clientId) {
+        const options = await loadBookingItemOptions(supabase, userId, clientId)
+        setEntities(
+          options
+            .filter((b) => b.kind === "own")
+            .map((b) => ({
+              id: b.name,
+              name: b.name,
+              sub: b.linkedVermittlerNames?.length
+                ? `via ${b.linkedVermittlerNames.join(", ")}`
+                : undefined,
+            }))
+        )
       } else {
-        let q = supabase
+        const { data } = await supabase
           .from("booking_items")
           .select("id, name")
           .eq("user_id", userId)
           .eq("active", true)
           .order("name")
-        if (clientId) q = q.eq("client_id", clientId)
-        const { data } = await q
         setEntities((data ?? []).map((b: any) => ({ id: b.name, name: b.name })))
       }
     } finally {
