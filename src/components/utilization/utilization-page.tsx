@@ -158,7 +158,7 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
       .lte("date", endDate)
     if (tile.type === "project") q = q.eq("project_id", tile.entity_id)
     else if (tile.type === "task") q = q.eq("task_id", tile.entity_id)
-    else q = q.eq("booking_item_text", tile.entity_id)
+    else q = q.or(`booking_item_text.eq.${tile.entity_id},vermittler_booking_item_text.eq.${tile.entity_id}`)
 
     const { data } = await q
 
@@ -195,7 +195,7 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
             let q = supabase.from("time_entries").select("net_h").eq("user_id", userId)
             if (tile.type === "project") q = q.eq("project_id", tile.entity_id)
             else if (tile.type === "task") q = q.eq("task_id", tile.entity_id)
-            else q = q.eq("booking_item_text", tile.entity_id)
+            else q = q.or(`booking_item_text.eq.${tile.entity_id},vermittler_booking_item_text.eq.${tile.entity_id}`)
             const { gte, lte } = getDateRange(tile.period, selectedMonth, tile)
             if (gte) q = q.gte("date", gte)
             if (lte) q = q.lte("date", lte)
