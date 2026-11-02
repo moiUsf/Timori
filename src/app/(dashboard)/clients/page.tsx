@@ -287,13 +287,15 @@ export default function ClientsPage() {
       const { error } = await supabase.from("booking_items").update(payload).eq("id", editingBooking.id)
       if (error) { toast.error("Fehler: " + error.message); return }
       toast.success("Buchungsposten aktualisiert")
+      setBookingDialog(false); setEditingBooking(null)
+      setBookingForm({ name: "", description: "", client_id: "" })
     } else {
-      const { error } = await supabase.from("booking_items").insert(payload)
+      const { data: newItem, error } = await supabase.from("booking_items").insert(payload).select().single()
       if (error) { toast.error("Fehler: " + error.message); return }
       toast.success("Buchungsposten erstellt")
+      // Stay in dialog with edit mode so user can assign Vermittler links
+      setEditingBooking(newItem as BookingItem)
     }
-    setBookingDialog(false); setEditingBooking(null)
-    setBookingForm({ name: "", description: "", client_id: "" })
     if (bookingForm.client_id) loadProjects(bookingForm.client_id)
     loadAllBookings(userId)
     loadBookingLinks(userId)
@@ -1183,7 +1185,9 @@ export default function ClientsPage() {
               ? <Button variant="destructive" onClick={() => { deleteBooking(editingBooking.id, editingBooking.client_id); setBookingDialog(false) }}><Trash2 className="h-4 w-4 mr-1.5" />Löschen</Button>
               : <span />}
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setBookingDialog(false)}>Abbrechen</Button>
+              <Button variant="outline" onClick={() => { setBookingDialog(false); setEditingBooking(null); setBookingForm({ name: "", description: "", client_id: "" }) }}>
+                {editingBooking ? "Schließen" : "Abbrechen"}
+              </Button>
               <Button onClick={saveBooking}>{editingBooking ? "Speichern" : "Erstellen"}</Button>
             </div>
           </DialogFooter>
