@@ -434,7 +434,11 @@ export default function TimePage() {
     if (filterClient.length > 0 && !filterClient.includes(e.client_id)) return false
     if (filterBookingItem.length > 0 && !filterBookingItem.includes(e.booking_item_text ?? "")) return false
     if (filterTask.length > 0 && (!e.task_id || !filterTask.includes(e.task_id))) return false
-    if (filterVermittler.length > 0 && !filterVermittler.includes(e.vermittler_booking_item_text ?? "")) return false
+    if (filterVermittler.length > 0) {
+      const vText = e.vermittler_booking_item_text ?? ""
+      const matches = filterVermittler.includes(vText) || (filterVermittler.includes("_empty") && !vText)
+      if (!matches) return false
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       const net = String(Math.round(e.net_h * 100) / 100)
@@ -997,7 +1001,7 @@ export default function TimePage() {
                       <span className="text-xs text-muted-foreground font-medium max-md:text-sm">Vermittler-BP</span>
                       <MultiSelectFilter
                         label="Vermittler-BP"
-                        options={allVermittlerItems.map(v => ({ value: v, label: v }))}
+                        options={[{ value: "_empty", label: "Ohne Vermittler-BP" }, ...allVermittlerItems.map(v => ({ value: v, label: v }))]}
                         selected={filterVermittler}
                         onChange={setFilterVermittler}
                         className="w-48 max-md:w-full"
@@ -1025,7 +1029,7 @@ export default function TimePage() {
                 ))}
                 {filterVermittler.length > 0 && filterVermittler.map(v => (
                   <Badge key={v} variant="secondary" className="gap-1 text-xs">
-                    ↳ {v}
+                    ↳ {v === "_empty" ? "Ohne Vermittler-BP" : v}
                     <button onClick={() => setFilterVermittler(prev => prev.filter(x => x !== v))} className="ml-1 hover:text-destructive">×</button>
                   </Badge>
                 ))}
