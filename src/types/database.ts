@@ -123,6 +123,7 @@ export type BookingItemOption = {
   kind: "own" | "vermittler"
   vermittlerClientName?: string
   linkedVermittlerNames?: string[]
+  linkedVermittlerItemNames?: string[]
 }
 
 export type BookingItemLinkView = {

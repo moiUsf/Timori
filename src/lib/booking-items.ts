@@ -55,28 +55,36 @@ export async function loadBookingItemOptions(
     .eq("active", true)
     .order("name")
 
-  // vermittler item id → Vermittler-Kundenname
-  const vermittlerClientMap = new Map<string, string>()
+  // vermittler item id → { clientName, itemName }
+  const vermittlerInfoMap = new Map<string, { clientName: string; itemName: string }>()
   for (const item of vermittlerItems ?? []) {
     const client = one<{ id?: string; name?: string }>(item.client)
-    vermittlerClientMap.set(item.id, client?.name ?? "")
+    vermittlerInfoMap.set(item.id, { clientName: client?.name ?? "", itemName: item.name })
   }
 
-  // Kunden-Buchungsposten id → Liste der Vermittler-Kundennamen
+  // Kunden-Buchungsposten id → Liste der Vermittler-Kundennamen (dedupliziert)
   const customerLinkedNames = new Map<string, string[]>()
+  // Kunden-Buchungsposten id → Liste der Vermittler-Buchungspostennamen
+  const customerLinkedItemNames = new Map<string, string[]>()
   for (const link of linkRows) {
-    const clientName = vermittlerClientMap.get(link.vermittler_booking_item_id)
-    if (clientName) {
-      const arr = customerLinkedNames.get(link.customer_booking_item_id) ?? []
-      if (!arr.includes(clientName)) arr.push(clientName)
-      customerLinkedNames.set(link.customer_booking_item_id, arr)
+    const info = vermittlerInfoMap.get(link.vermittler_booking_item_id)
+    if (info) {
+      const clientArr = customerLinkedNames.get(link.customer_booking_item_id) ?? []
+      if (!clientArr.includes(info.clientName)) clientArr.push(info.clientName)
+      customerLinkedNames.set(link.customer_booking_item_id, clientArr)
+
+      const itemArr = customerLinkedItemNames.get(link.customer_booking_item_id) ?? []
+      itemArr.push(info.itemName)
+      customerLinkedItemNames.set(link.customer_booking_item_id, itemArr)
     }
   }
 
-  // Own-Options um linkedVermittlerNames anreichern
+  // Own-Options um linkedVermittlerNames + linkedVermittlerItemNames anreichern
   for (const opt of options) {
     const names = customerLinkedNames.get(opt.id)
     if (names?.length) opt.linkedVermittlerNames = names
+    const itemNames = customerLinkedItemNames.get(opt.id)
+    if (itemNames?.length) opt.linkedVermittlerItemNames = itemNames
   }
 
   // Vermittler-Options anhängen (für Zeiterfassungs-Dropdowns)
@@ -99,6 +107,9 @@ export async function loadBookingItemOptions(
 export function bookingItemOptionLabel(item: BookingItemOption): string {
   if (item.kind === "vermittler" && item.vermittlerClientName) {
     return `${item.name} (${item.vermittlerClientName})`
+  }
+  if (item.kind === "own" && item.linkedVermittlerItemNames?.length) {
+    return `${item.name} → ${item.linkedVermittlerItemNames.join(", ")}`
   }
   return item.name
 }
