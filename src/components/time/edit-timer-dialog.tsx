@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { ActiveTimer, Client, Project, Task, HourCode } from "@/types/database"
+import type { ActiveTimer, Client, Project, Task, HourCode, BookingItemOption } from "@/types/database"
+import { bookingItemOptionLabel, loadBookingItemOptions } from "@/lib/booking-items"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
@@ -38,13 +39,14 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
   const supabase = createClient()
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
-  const [bookingItems, setBookingItems] = useState<{ id: string; name: string }[]>([])
+  const [bookingItems, setBookingItems] = useState<BookingItemOption[]>([])
 
   const [projectId, setProjectId] = useState("")
   const [taskId, setTaskId] = useState("")
   const [code, setCode] = useState<HourCode>("BEV")
   const [description, setDescription] = useState("")
   const [bookingItemText, setBookingItemText] = useState("")
+  const [vermittlerBookingItemText, setVermittlerBookingItemText] = useState("")
   const [startedAt, setStartedAt] = useState("")
   const [saving, setSaving] = useState(false)
   const [creatingBookingItem, setCreatingBookingItem] = useState(false)
@@ -83,6 +85,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
     setCode(timer.code)
     setDescription(timer.description || "")
     setBookingItemText(timer.booking_item_text || "")
+    setVermittlerBookingItemText(timer.vermittler_booking_item_text || "")
     setStartedAt(toDatetimeLocal(timer.started_at))
   }, [open, timer.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -91,13 +94,10 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
     if (!open || !timer.client_id) return
     Promise.all([
       supabase.from("projects").select("*").eq("client_id", timer.client_id).eq("active", true).order("name"),
-      supabase.from("booking_items").select("id, name")
-        .eq("user_id", timer.user_id)
-        .or(`client_id.eq.${timer.client_id},client_id.is.null`)
-        .eq("active", true).order("name"),
-    ]).then(([pRes, bRes]) => {
+      loadBookingItemOptions(supabase, timer.user_id, timer.client_id),
+    ]).then(([pRes, bookingOptions]) => {
       setProjects(pRes.data ?? [])
-      setBookingItems(bRes.data ?? [])
+      setBookingItems(bookingOptions)
     })
   }, [open, timer.client_id, timer.user_id, supabase])
 
@@ -136,7 +136,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
       active: true,
     }).select("id, name").single()
     if (error) { toast.error("Fehler: " + error.message); return }
-    setBookingItems(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setBookingItems(prev => [...prev, { ...data, kind: "own" as const }].sort((a, b) => a.name.localeCompare(b.name)))
     setBookingItemText(data.name)
     setCreatingBookingItem(false)
     setNewBookingItemName("")
@@ -185,6 +185,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
       code,
       description,
       booking_item_text: bookingItemText,
+      vermittler_booking_item_text: vermittlerBookingItemText,
       started_at: new Date(startedAt).toISOString(),
     }).eq("id", timer.id)
 
@@ -226,6 +227,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
                   return
                 }
                 setBookingItemText(v)
+                setVermittlerBookingItemText("")
                 setCreatingBookingItem(false)
               }}
             >
@@ -237,7 +239,13 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
                   </span>
                 </SelectItem>
                 {bookingItems.length > 0 && <SelectSeparator />}
-                {bookingItems.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                {bookingItems.filter((b) => b.kind === "own").map((b) => (
+                  <SelectItem key={b.id} value={b.name}>{bookingItemOptionLabel(b)}</SelectItem>
+                ))}
+                {bookingItems.some((b) => b.kind === "vermittler") && <SelectSeparator />}
+                {bookingItems.filter((b) => b.kind === "vermittler").map((b) => (
+                  <SelectItem key={b.id} value={b.name}>{bookingItemOptionLabel(b)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {creatingBookingItem && (
@@ -262,6 +270,30 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
                 </Button>
               </div>
             )}
+            {/* Vermittler sub-dropdown */}
+            {(() => {
+              const opts = bookingItems
+                .filter(b => b.kind === "own" && b.name === bookingItemText)
+                .flatMap(b => b.linkedVermittlerItemNames ?? [])
+              if (opts.length === 0) return null
+              return (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Vermittler-Buchungsposten</Label>
+                  <Select
+                    value={vermittlerBookingItemText || "_none"}
+                    onValueChange={v => setVermittlerBookingItemText(v === "_none" ? "" : v)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Welcher Vermittler-Buchungsposten?" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— Keiner —</SelectItem>
+                      {opts.map(name => (
+                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
+            })()}
           </div>
 
           {/* Project */}

@@ -154,6 +154,7 @@ export interface TimeEntry {
   net_h: number
   task_id: string | null
   booking_item_text: string
+  vermittler_booking_item_text: string
   created_at: string
   client?: Client
   project?: Project
@@ -172,6 +173,7 @@ export interface ActiveTimer {
   total_paused_ms: number
   task_id: string | null
   booking_item_text: string
+  vermittler_booking_item_text: string
   created_at: string
   client?: Client
   project?: Project

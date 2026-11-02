@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
-import type { TimeEntry, Client, Project, Task } from "@/types/database"
+import type { TimeEntry, Client, Project, Task, BookingItemOption } from "@/types/database"
+import { bookingItemOptionLabel, loadBookingItemOptions } from "@/lib/booking-items"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -44,6 +45,7 @@ const emptyForm = () => ({
   remote: false,
   task_id: "",
   booking_item_text: "",
+  vermittler_booking_item_text: "",
 })
 
 /** "2025-04-13" → "13.04" */
@@ -67,7 +69,7 @@ export default function TimePage() {
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<TaskWithBooking[]>([])
-  const [bookingItems, setBookingItems] = useState<{ id: string; name: string }[]>([])
+  const [bookingItems, setBookingItems] = useState<BookingItemOption[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showForm, setShowForm] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
@@ -135,13 +137,10 @@ export default function TimePage() {
     if (!form.client_id || !userId) { setProjects([]); setBookingItems([]); return }
     Promise.all([
       supabase.from("projects").select("*").eq("client_id", form.client_id).eq("active", true).order("name"),
-      supabase.from("booking_items").select("id, name")
-        .eq("user_id", userId)
-        .or(`client_id.eq.${form.client_id},client_id.is.null`)
-        .eq("active", true).order("name"),
-    ]).then(([pRes, bRes]) => {
+      loadBookingItemOptions(supabase, userId, form.client_id),
+    ]).then(([pRes, bookingOptions]) => {
       setProjects(pRes.data ?? [])
-      setBookingItems(bRes.data ?? [])
+      setBookingItems(bookingOptions)
     })
   }, [form.client_id, supabase, userId])
 
@@ -214,6 +213,7 @@ export default function TimePage() {
       remote: entry.remote,
       task_id: entry.task_id ?? "",
       booking_item_text: entry.booking_item_text ?? "",
+      vermittler_booking_item_text: entry.vermittler_booking_item_text ?? "",
     })
     setBookingItemAutoSet(false)
     setProjectSearch("")
@@ -242,6 +242,7 @@ export default function TimePage() {
       remote: entry.remote,
       task_id: entry.task_id ?? "",
       booking_item_text: entry.booking_item_text ?? "",
+      vermittler_booking_item_text: entry.vermittler_booking_item_text ?? "",
     })
     setBookingItemAutoSet(false)
     setProjectSearch("")
@@ -277,7 +278,7 @@ export default function TimePage() {
       active: true,
     }).select("id, name").single()
     if (error) { toast.error("Fehler: " + error.message); return }
-    setBookingItems(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setBookingItems(prev => [...prev, { ...data, kind: "own" as const }].sort((a, b) => a.name.localeCompare(b.name)))
     setForm(f => ({ ...f, booking_item_text: data.name }))
     setBookingItemAutoSet(false)
     setCreatingBookingItem(false)
@@ -357,6 +358,7 @@ export default function TimePage() {
       net_h,
       task_id: form.task_id || null,
       booking_item_text: form.booking_item_text,
+      vermittler_booking_item_text: form.vermittler_booking_item_text,
     }
 
     if (editingEntry) {
@@ -574,7 +576,7 @@ export default function TimePage() {
                         setNewBookingItemName("")
                         return
                       }
-                      setForm({ ...form, booking_item_text: v })
+                      setForm({ ...form, booking_item_text: v, vermittler_booking_item_text: "" })
                       setBookingItemAutoSet(false)
                       setCreatingBookingItem(false)
                     }}>
@@ -592,7 +594,13 @@ export default function TimePage() {
                       {form.booking_item_text && !bookingItems.some(b => b.name === form.booking_item_text) && (
                         <SelectItem value={form.booking_item_text}>{form.booking_item_text}</SelectItem>
                       )}
-                      {bookingItems.map((b) => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                      {bookingItems.filter((b) => b.kind === "own").map((b) => (
+                        <SelectItem key={b.id} value={b.name}>{bookingItemOptionLabel(b)}</SelectItem>
+                      ))}
+                      {bookingItems.some((b) => b.kind === "vermittler") && <SelectSeparator />}
+                      {bookingItems.filter((b) => b.kind === "vermittler").map((b) => (
+                        <SelectItem key={b.id} value={b.name}>{bookingItemOptionLabel(b)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {creatingBookingItem && (
@@ -618,6 +626,32 @@ export default function TimePage() {
                       </Button>
                     </div>
                   )}
+                  {/* Vermittler sub-dropdown — only when selected own item has linked Vermittler items */}
+                  {(() => {
+                    const opts = bookingItems
+                      .filter(b => b.kind === "own" && b.name === form.booking_item_text)
+                      .flatMap(b => b.linkedVermittlerItemNames ?? [])
+                    if (opts.length === 0) return null
+                    return (
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Vermittler-Buchungsposten</Label>
+                        <Select
+                          value={form.vermittler_booking_item_text || "_none"}
+                          onValueChange={v => setForm(f => ({ ...f, vermittler_booking_item_text: v === "_none" ? "" : v }))}
+                        >
+                          <SelectTrigger className="h-12 text-base md:h-9 md:text-sm">
+                            <SelectValue placeholder="Welcher Vermittler-Buchungsposten?" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none">— Keiner —</SelectItem>
+                            {opts.map(name => (
+                              <SelectItem key={name} value={name}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
 
