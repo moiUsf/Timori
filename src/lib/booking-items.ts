@@ -113,10 +113,10 @@ export async function loadBookingItemLinks(
       id,
       customer_booking_item_id,
       vermittler_booking_item_id,
-      customer_item:booking_items!booking_item_links_customer_fk(
+      customer_item:booking_items!customer_booking_item_id(
         id, name, client_id, client:clients(id, name)
       ),
-      vermittler_item:booking_items!booking_item_links_vermittler_fk(
+      vermittler_item:booking_items!vermittler_booking_item_id(
         id, name, client_id, client:clients(id, name)
       )
     `)
