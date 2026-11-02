@@ -45,6 +45,9 @@ export interface UserProfile {
   report_config: ReportConfig | null
   utilization_tiles: UtilizationTile[] | null
   utilization_config: UtilizationConfig | null
+  approved: boolean
+  approval_status: "pending" | "approved" | "rejected"
+  approval_token: string
   created_at: string
   updated_at: string
 }
@@ -63,6 +66,8 @@ export interface Client {
   budget_carry_over: boolean | null
   budget_date_from: string | null
   budget_date_to: string | null
+  is_vermittler: boolean
+  vermittler_client_id: string | null
   created_at: string
 }
 
@@ -102,6 +107,34 @@ export interface BookingItem {
   description: string | null
   active: boolean
   created_at: string
+}
+
+export interface BookingItemLink {
+  id: string
+  user_id: string
+  customer_booking_item_id: string
+  vermittler_booking_item_id: string
+  created_at: string
+}
+
+export type BookingItemOption = {
+  id: string
+  name: string
+  kind: "own" | "vermittler"
+  vermittlerClientName?: string
+  linkedVermittlerNames?: string[]
+}
+
+export type BookingItemLinkView = {
+  linkId: string
+  customerBookingItemId: string
+  customerBookingItemName: string
+  customerClientId: string | null
+  customerClientName: string
+  vermittlerBookingItemId: string
+  vermittlerBookingItemName: string
+  vermittlerClientId: string | null
+  vermittlerClientName: string
 }
 
 export interface TimeEntry {
