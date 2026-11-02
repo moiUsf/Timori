@@ -1024,12 +1024,10 @@ export default function TimePage() {
                                 )}
                               </div>
                               {entry.booking_item_text && (
-                                <p className="text-sm font-mono text-zinc-400 dark:text-zinc-500">
-                                  {entry.booking_item_text}
-                                  {entry.vermittler_booking_item_text && (
-                                    <span className="text-xs text-muted-foreground font-sans ml-1.5">↳ {entry.vermittler_booking_item_text}</span>
-                                  )}
-                                </p>
+                                <p className="text-sm font-mono text-zinc-400 dark:text-zinc-500">{entry.booking_item_text}</p>
+                              )}
+                              {entry.vermittler_booking_item_text && (
+                                <p className="text-xs text-muted-foreground">↳ {entry.vermittler_booking_item_text}</p>
                               )}
                               {entry.description && <p className="text-sm text-muted-foreground">{entry.description}</p>}
                             </div>
@@ -1071,12 +1069,10 @@ export default function TimePage() {
                                 )}
                               </div>
                               {entry.booking_item_text && (
-                                <p className="text-xs text-muted-foreground font-mono">
-                                  {entry.booking_item_text}
-                                  {entry.vermittler_booking_item_text && (
-                                    <span className="font-sans ml-1.5">↳ {entry.vermittler_booking_item_text}</span>
-                                  )}
-                                </p>
+                                <p className="text-xs text-muted-foreground font-mono">{entry.booking_item_text}</p>
+                              )}
+                              {entry.vermittler_booking_item_text && (
+                                <p className="text-xs text-muted-foreground">↳ {entry.vermittler_booking_item_text}</p>
                               )}
                               {entry.description && (
                                 <p className="text-xs text-muted-foreground">{entry.description}</p>
