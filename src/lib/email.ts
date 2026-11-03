@@ -1,6 +1,12 @@
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy erzeugen: new Resend() wirft ohne API-Key – beim Import würde das den Build (z. B. auf Vercel) abbrechen
+let resendClient: Resend | null = null
+function getResend(): Resend {
+  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY ist nicht gesetzt")
+  resendClient ??= new Resend(process.env.RESEND_API_KEY)
+  return resendClient
+}
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "youssef.elouatiq@intellinq.de"
 const FROM_ADDRESS = process.env.EMAIL_FROM ?? "Timori <noreply@resend.dev>"
 
@@ -17,7 +23,7 @@ export async function sendAdminApprovalEmail(params: {
     hour: "2-digit", minute: "2-digit",
   })
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_ADDRESS,
     to: ADMIN_EMAIL,
     subject: `[Timori] Neue Registrierung: ${userName} (${userEmail})`,
@@ -75,7 +81,7 @@ export async function sendUserNotificationEmail(params: {
   const { userName, userEmail, action, loginUrl } = params
   const isApproved = action === "approve"
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM_ADDRESS,
     to: userEmail,
     subject: isApproved
