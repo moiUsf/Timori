@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import {
   Clock, LayoutDashboard, CalendarDays, TrendingUp, Receipt,
-  Users, FileText, Settings, LogOut, Umbrella, BarChart2
+  Users, FileText, Settings, LogOut, Umbrella, BarChart2, Shield
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -90,6 +90,21 @@ export function Sidebar({ user, profile, onClose }: SidebarProps) {
           <Settings className="h-4 w-4" />
           {t("settings")}
         </Link>
+        {user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
+          <Link
+            href="/admin"
+            onClick={onClose}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              pathname === "/admin"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Shield className="h-4 w-4" />
+            Administration
+          </Link>
+        )}
         <div className="px-3 py-2">
           <p className="text-xs font-medium truncate">{profile.name}</p>
           <p className="text-xs text-muted-foreground truncate">{user.email}</p>

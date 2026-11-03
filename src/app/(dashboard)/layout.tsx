@@ -19,6 +19,7 @@ export default async function DashboardLayout({
     .single()
 
   if (!profile) redirect("/onboarding")
+  if (profile.approved === false) redirect("/pending-approval")
 
   return (
     <DashboardShell user={user} profile={profile}>

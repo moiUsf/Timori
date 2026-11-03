@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
   await upsert("clients", withUid(d.clients ?? []))
   await upsert("projects", withUid(d.projects ?? []))
   await upsert("booking_items", withUid(d.booking_items ?? []))
+  await upsert("booking_item_links", withUid(d.booking_item_links ?? []))
   await upsert("tasks", withUid(d.tasks ?? []))
   await upsert("time_entries", withUid(d.time_entries ?? []))
   await upsert("vacation_entries", withUid(d.vacation_entries ?? []))

@@ -12,6 +12,7 @@ export interface FetchedEntry {
   gross_h: number
   net_h: number
   booking_item_text: string
+  vermittler_booking_item_text: string
   description: string
   project: { name: string } | null
   task: { name: string } | null

@@ -109,7 +109,7 @@ export function bookingItemOptionLabel(item: BookingItemOption): string {
     return `${item.name} (${item.vermittlerClientName})`
   }
   if (item.kind === "own" && item.linkedVermittlerItemNames?.length) {
-    return `${item.name} → ${item.linkedVermittlerItemNames.join(", ")}`
+    return `${item.name} ↗`
   }
   return item.name
 }

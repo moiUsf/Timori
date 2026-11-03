@@ -102,28 +102,67 @@ export function TaetigkeitsberichtDialog({
     const [year, mon] = month.split("-").map(Number)
     const first = `${year}-${mon.toString().padStart(2, "0")}-01`
     const last = toLocalDateStr(new Date(year, mon, 0))
-    supabase.from("time_entries")
-      .select("booking_item_text, net_h, project:projects(name)")
-      .eq("user_id", userId).eq("client_id", clientId)
-      .gte("date", first).lte("date", last)
-      .then(({ data }) => {
-        const entries = (data ?? []) as unknown as Pick<FetchedEntry, "booking_item_text" | "net_h" | "project">[]
-        const kontoMap = new Map<string, number>()
-        let total = 0
-        for (const e of entries) {
-          const label = e.booking_item_text || (e.project as { name: string } | null)?.name || t("misc")
-          kontoMap.set(label, (kontoMap.get(label) ?? 0) + e.net_h)
-          total += e.net_h
-        }
-        setKontoPreview(
-          Array.from(kontoMap.entries())
-            .map(([label, stunden]) => ({ label, stunden }))
-            .sort((a, b) => b.stunden - a.stunden)
-        )
-        setGesamtNetto(total)
-        setLoadingKonto(false)
-      })
-  }, [clientId, month, supabase, userId, t])
+
+    const isVermittler = clients.find(c => c.id === clientId)?.is_vermittler ?? false
+
+    if (isVermittler) {
+      supabase.from("booking_items")
+        .select("name")
+        .eq("client_id", clientId)
+        .eq("user_id", userId)
+        .eq("active", true)
+        .then(({ data: vItems }) => {
+          const vNames = (vItems ?? []).map((i: { name: string }) => i.name).filter(Boolean)
+          if (vNames.length === 0) {
+            setKontoPreview([]); setGesamtNetto(0); setLoadingKonto(false); return
+          }
+          supabase.from("time_entries")
+            .select("vermittler_booking_item_text, net_h")
+            .eq("user_id", userId)
+            .in("vermittler_booking_item_text", vNames)
+            .gte("date", first).lte("date", last)
+            .then(({ data }) => {
+              const entries = (data ?? []) as { vermittler_booking_item_text: string; net_h: number }[]
+              const kontoMap = new Map<string, number>()
+              let total = 0
+              for (const e of entries) {
+                const label = e.vermittler_booking_item_text || t("misc")
+                kontoMap.set(label, (kontoMap.get(label) ?? 0) + e.net_h)
+                total += e.net_h
+              }
+              setKontoPreview(
+                Array.from(kontoMap.entries())
+                  .map(([label, stunden]) => ({ label, stunden }))
+                  .sort((a, b) => b.stunden - a.stunden)
+              )
+              setGesamtNetto(total)
+              setLoadingKonto(false)
+            })
+        })
+    } else {
+      supabase.from("time_entries")
+        .select("booking_item_text, net_h, project:projects(name)")
+        .eq("user_id", userId).eq("client_id", clientId)
+        .gte("date", first).lte("date", last)
+        .then(({ data }) => {
+          const entries = (data ?? []) as unknown as Pick<FetchedEntry, "booking_item_text" | "net_h" | "project">[]
+          const kontoMap = new Map<string, number>()
+          let total = 0
+          for (const e of entries) {
+            const label = e.booking_item_text || (e.project as { name: string } | null)?.name || t("misc")
+            kontoMap.set(label, (kontoMap.get(label) ?? 0) + e.net_h)
+            total += e.net_h
+          }
+          setKontoPreview(
+            Array.from(kontoMap.entries())
+              .map(([label, stunden]) => ({ label, stunden }))
+              .sort((a, b) => b.stunden - a.stunden)
+          )
+          setGesamtNetto(total)
+          setLoadingKonto(false)
+        })
+    }
+  }, [clientId, month, supabase, userId, t, clients])
 
   // ── Field manipulation ────────────────────────────────────
   function moveFieldUp(i: number) {
@@ -191,23 +230,57 @@ export function TaetigkeitsberichtDialog({
       const first = `${year}-${mon.toString().padStart(2, "0")}-01`
       const last = toLocalDateStr(new Date(year, mon, 0))
 
-      const [entriesRes, profileRes, clientRes] = await Promise.all([
-        supabase.from("time_entries")
+      const isVermittler = clients.find(c => c.id === clientId)?.is_vermittler ?? false
+
+      let entriesData: FetchedEntry[] = []
+      let entriesError: { message: string } | null = null
+
+      if (isVermittler) {
+        const { data: vItems } = await supabase
+          .from("booking_items")
+          .select("name")
+          .eq("client_id", clientId)
+          .eq("user_id", userId)
+          .eq("active", true)
+        const vNames = (vItems ?? []).map((i: { name: string }) => i.name).filter(Boolean)
+        if (vNames.length > 0) {
+          const res = await supabase
+            .from("time_entries")
+            .select("*, project:projects(name), task:tasks(name)")
+            .eq("user_id", userId)
+            .in("vermittler_booking_item_text", vNames)
+            .gte("date", first).lte("date", last)
+            .order("date").order("time_from")
+          entriesError = res.error
+          // Swap booking_item_text with vermittler_booking_item_text for report
+          entriesData = (res.data ?? []).map((e: FetchedEntry) => ({
+            ...e,
+            booking_item_text: e.vermittler_booking_item_text || e.booking_item_text,
+          }))
+        }
+      } else {
+        const res = await supabase
+          .from("time_entries")
           .select("*, project:projects(name), task:tasks(name)")
           .eq("user_id", userId).eq("client_id", clientId)
           .gte("date", first).lte("date", last)
-          .order("date").order("time_from"),
+          .order("date").order("time_from")
+        entriesError = res.error
+        entriesData = (res.data ?? []) as FetchedEntry[]
+      }
+
+      const [profileRes, clientRes] = await Promise.all([
         supabase.from("users_profile").select("name, personal_nr").eq("user_id", userId).single(),
         supabase.from("clients").select("name, client_nr").eq("id", clientId).single(),
       ])
 
-      if (entriesRes.error || profileRes.error || clientRes.error) {
+      if (entriesError || profileRes.error || clientRes.error) {
         toast.error(t("errorLoading"))
         return
       }
 
-      const rows = buildPreviewRows(entriesRes.data as FetchedEntry[], year, mon, getActiveFields())
-      setFetchedEntries(entriesRes.data as FetchedEntry[])
+      const rows = buildPreviewRows(entriesData, year, mon, getActiveFields())
+      setFetchedEntries(entriesData)
       setProfileData(profileRes.data!)
       setClientData(clientRes.data!)
       setPreviewRows(rows)

@@ -136,7 +136,7 @@ export function VermittlerLinksEditor({
   }
 
   return (
-    <div className="space-y-3 border-t pt-4">
+    <div className="min-w-0 space-y-3 overflow-hidden border-t pt-4">
       <Label>Vermittler-Buchungsposten</Label>
       {links.length === 0 ? (
         <p className="text-xs text-muted-foreground">Keine Vermittler-Buchungsposten verknüpft</p>
@@ -145,8 +145,8 @@ export function VermittlerLinksEditor({
           {links.map((link) => (
             <div key={link.linkId} className="flex items-center gap-2 rounded-md border px-2 py-1.5">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-mono text-sm">{link.vermittlerBookingItemName}</p>
-                <p className="truncate text-xs text-muted-foreground">{link.vermittlerClientName}</p>
+                <p className="truncate font-mono text-sm" title={link.vermittlerBookingItemName}>{link.vermittlerBookingItemName}</p>
+                <p className="truncate text-xs text-muted-foreground" title={link.vermittlerClientName}>{link.vermittlerClientName}</p>
               </div>
               <Button
                 type="button"
@@ -181,9 +181,9 @@ export function VermittlerLinksEditor({
         </Select>
 
         {vermittlerClientId && !creating && (
-          <div className="flex gap-2">
+          <div className="flex min-w-0 gap-2">
             <Select value={vermittlerItemId} onValueChange={setVermittlerItemId}>
-              <SelectTrigger className="flex-1">
+              <SelectTrigger className="min-w-0 flex-1">
                 <SelectValue placeholder="Buchungsposten wählen..." />
               </SelectTrigger>
               <SelectContent>
@@ -195,6 +195,7 @@ export function VermittlerLinksEditor({
             <Button
               type="button"
               size="sm"
+              className="shrink-0"
               disabled={!vermittlerItemId || saving}
               onClick={() => addLink(vermittlerItemId)}
             >
@@ -204,7 +205,7 @@ export function VermittlerLinksEditor({
         )}
 
         {vermittlerClientId && creating && (
-          <div className="flex gap-2">
+          <div className="flex min-w-0 gap-2">
             <Input
               autoFocus
               placeholder="Neuer Vermittler-Buchungsposten..."
@@ -218,7 +219,7 @@ export function VermittlerLinksEditor({
                 if (e.key === "Escape") setCreating(false)
               }}
             />
-            <Button type="button" size="sm" disabled={!newName.trim() || saving} onClick={createAndLink}>
+            <Button type="button" size="sm" className="shrink-0" disabled={!newName.trim() || saving} onClick={createAndLink}>
               <Plus className="h-4 w-4" />
             </Button>
           </div>

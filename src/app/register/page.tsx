@@ -36,8 +36,8 @@ export default function RegisterPage() {
     }
 
     if (data.user) {
-      // Create profile
-      await supabase.from("users_profile").insert({
+      // Create profile (approved defaults to false via migration 008)
+      const { error: profileError } = await supabase.from("users_profile").insert({
         user_id: data.user.id,
         name,
         personal_nr: null,
@@ -47,7 +47,24 @@ export default function RegisterPage() {
         hourly_rate: null,
       })
 
-      router.push("/onboarding")
+      if (profileError) {
+        toast.error("Profil konnte nicht erstellt werden: " + profileError.message)
+        setLoading(false)
+        return
+      }
+
+      // Admin benachrichtigen (non-fatal)
+      try {
+        await fetch("/api/admin/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: data.user.id }),
+        })
+      } catch {
+        // Registrierung ist bereits abgeschlossen
+      }
+
+      router.push("/pending-approval")
     }
     setLoading(false)
   }
