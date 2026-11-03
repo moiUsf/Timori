@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Client, Project, Task, HourCode, BookingItemOption } from "@/types/database"
 import { bookingItemOptionLabel, loadBookingItemOptions } from "@/lib/booking-items"
@@ -16,6 +16,8 @@ import {
 import { toast } from "sonner"
 import { Plus } from "lucide-react"
 import { TimerPlay } from "@/components/icons/timer-play"
+import { BudgetHint, BudgetLine } from "@/components/time/budget-hint"
+import { useBookingItemBudgets } from "@/lib/use-booking-item-budgets"
 
 export interface TimerInitialValues {
   clientId?: string
@@ -61,6 +63,11 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
   const [newProjectName, setNewProjectName] = useState("")
   const [creatingTask, setCreatingTask] = useState(false)
   const [newTaskName, setNewTaskName] = useState("")
+  const budgetItemNames = useMemo(
+    () => bookingItems.flatMap(b => [b.name, ...(b.linkedVermittlerItemNames ?? [])]),
+    [bookingItems],
+  )
+  const bookingBudgets = useBookingItemBudgets(userId, clientId, null, budgetItemNames)
 
   // Apply initial values when dialog opens
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,14 +244,15 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
                 </SelectItem>
                 {bookingItems.length > 0 && <SelectSeparator />}
                 {bookingItems.filter((b) => b.kind === "own").map((b) => (
-                  <SelectItem key={b.id} value={b.name}>{bookingItemOptionLabel(b)}</SelectItem>
+                  <SelectItem key={b.id} value={b.name} hint={<BudgetHint budget={bookingBudgets.get(b.name)} />}>{bookingItemOptionLabel(b)}</SelectItem>
                 ))}
                 {bookingItems.some((b) => b.kind === "vermittler") && <SelectSeparator />}
                 {bookingItems.filter((b) => b.kind === "vermittler").map((b) => (
-                  <SelectItem key={b.id} value={b.name}>{bookingItemOptionLabel(b)}</SelectItem>
+                  <SelectItem key={b.id} value={b.name} hint={<BudgetHint budget={bookingBudgets.get(b.name)} />}>{bookingItemOptionLabel(b)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {bookingItemText && <BudgetLine budget={bookingBudgets.get(bookingItemText)} />}
             {creatingBookingItem && (
               <div className="flex gap-1.5 mt-1">
                 <Input
@@ -284,7 +292,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
                     <SelectContent>
                       <SelectItem value="_none">— Keiner —</SelectItem>
                       {opts.map(name => (
-                        <SelectItem key={name} value={name}>{name}</SelectItem>
+                        <SelectItem key={name} value={name} hint={<BudgetHint budget={bookingBudgets.get(name)} />}>{name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

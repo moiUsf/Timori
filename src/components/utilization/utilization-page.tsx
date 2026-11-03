@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
-import { toLocalDateStr } from "@/lib/utils"
+import { computeTileUsage, type TileUsage } from "@/lib/utilization"
 import { Button } from "@/components/ui/button"
 import { Plus, Search, GripVertical } from "lucide-react"
 import { toast } from "sonner"
@@ -24,17 +24,7 @@ interface UtilizationPageProps {
   utilConfig: UtilizationConfig
 }
 
-type TileResult = { consumedH: number; effectiveBudget: number }
-
-function getDateRange(period: "total" | "monthly" | "range", selectedMonth: string, tile?: UtilizationTile) {
-  if (period === "total") return { gte: undefined, lte: undefined }
-  if (period === "range") return { gte: tile?.date_from, lte: tile?.date_to }
-  const [y, m] = selectedMonth.split("-").map(Number)
-  return {
-    gte: `${y}-${String(m).padStart(2, "0")}-01`,
-    lte: toLocalDateStr(new Date(y, m, 0)),
-  }
-}
+type TileResult = TileUsage
 
 function currentYearMonth() {
   const now = new Date()
@@ -152,40 +142,6 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
     return order.map((key) => [key, map.get(key)!] as [string, UtilizationTile[]])
   }, [visibleTiles])
 
-  async function fetchCarryOver(tile: UtilizationTile): Promise<TileResult> {
-    const [year, month] = selectedMonth.split("-").map(Number)
-    const endDate = toLocalDateStr(new Date(year, month, 0))
-
-    let q = supabase
-      .from("time_entries")
-      .select("date, net_h")
-      .eq("user_id", userId)
-      .lte("date", endDate)
-    if (tile.type === "project") q = q.eq("project_id", tile.entity_id)
-    else if (tile.type === "task") q = q.eq("task_id", tile.entity_id)
-    else q = q.or(`booking_item_text.eq.${tile.entity_id},vermittler_booking_item_text.eq.${tile.entity_id}`)
-
-    const { data } = await q
-
-    const byMonth: Record<string, number> = {}
-    for (const row of (data ?? []) as { date: string; net_h: number }[]) {
-      const key = row.date.slice(0, 7)
-      byMonth[key] = (byMonth[key] ?? 0) + row.net_h
-    }
-
-    let carryOver = 0
-    for (const m of Object.keys(byMonth).sort()) {
-      if (m >= selectedMonth) break
-      const available = tile.budget_h + carryOver
-      carryOver = Math.max(0, available - byMonth[m])
-    }
-
-    return {
-      consumedH: byMonth[selectedMonth] ?? 0,
-      effectiveBudget: tile.budget_h + carryOver,
-    }
-  }
-
   const loadConsumed = useCallback(
     async (tilesToLoad: UtilizationTile[]) => {
       if (tilesToLoad.length === 0) return
@@ -194,19 +150,7 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
       try {
         const results = await Promise.all(
           tilesToLoad.map(async (tile): Promise<{ id: string } & TileResult> => {
-            if (tile.period === "monthly" && tile.carry_over) {
-              return { id: tile.id, ...(await fetchCarryOver(tile)) }
-            }
-            let q = supabase.from("time_entries").select("net_h").eq("user_id", userId)
-            if (tile.type === "project") q = q.eq("project_id", tile.entity_id)
-            else if (tile.type === "task") q = q.eq("task_id", tile.entity_id)
-            else q = q.or(`booking_item_text.eq.${tile.entity_id},vermittler_booking_item_text.eq.${tile.entity_id}`)
-            const { gte, lte } = getDateRange(tile.period, selectedMonth, tile)
-            if (gte) q = q.gte("date", gte)
-            if (lte) q = q.lte("date", lte)
-            const { data } = await q
-            const consumedH = ((data ?? []) as { net_h: number }[]).reduce((acc, row) => acc + row.net_h, 0)
-            return { id: tile.id, consumedH, effectiveBudget: tile.budget_h }
+            return { id: tile.id, ...(await computeTileUsage(supabase, userId, tile, selectedMonth)) }
           })
         )
         setConsumedMap((prev) => {

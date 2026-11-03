@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import type { TimeEntry, Client, Project, Task, BookingItemOption } from "@/types/database"
@@ -20,6 +20,8 @@ import { toast } from "sonner"
 import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsbericht-dialog"
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter"
 import { StartTimerDialog, type TimerInitialValues } from "@/components/time/start-timer-dialog"
+import { BudgetHint, BudgetLine } from "@/components/time/budget-hint"
+import { useBookingItemBudgets } from "@/lib/use-booking-item-budgets"
 
 type TaskWithBooking = Task & { default_booking_item?: { id: string; name: string } | null }
 type EntryWithRelations = TimeEntry & { client: Client; project: Project; task?: Task }
@@ -101,6 +103,12 @@ export default function TimePage() {
   const [bulkVermittlerFromLinks, setBulkVermittlerFromLinks] = useState<string[]>([])
   const [timerDialogOpen, setTimerDialogOpen] = useState(false)
   const [timerInitialValues, setTimerInitialValues] = useState<TimerInitialValues | undefined>()
+
+  const budgetItemNames = useMemo(
+    () => bookingItems.flatMap(b => [b.name, ...(b.linkedVermittlerItemNames ?? [])]),
+    [bookingItems],
+  )
+  const bookingBudgets = useBookingItemBudgets(userId, form.client_id, form.date, budgetItemNames)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
@@ -634,14 +642,15 @@ export default function TimePage() {
                         <SelectItem value={form.booking_item_text}>{form.booking_item_text}</SelectItem>
                       )}
                       {bookingItems.filter((b) => b.kind === "own").map((b) => (
-                        <SelectItem key={b.id} value={b.name}>{bookingItemOptionLabel(b)}</SelectItem>
+                        <SelectItem key={b.id} value={b.name} hint={<BudgetHint budget={bookingBudgets.get(b.name)} />}>{bookingItemOptionLabel(b)}</SelectItem>
                       ))}
                       {bookingItems.some((b) => b.kind === "vermittler") && <SelectSeparator />}
                       {bookingItems.filter((b) => b.kind === "vermittler").map((b) => (
-                        <SelectItem key={b.id} value={b.name}>{bookingItemOptionLabel(b)}</SelectItem>
+                        <SelectItem key={b.id} value={b.name} hint={<BudgetHint budget={bookingBudgets.get(b.name)} />}>{bookingItemOptionLabel(b)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {form.booking_item_text && <BudgetLine budget={bookingBudgets.get(form.booking_item_text)} />}
                   {creatingBookingItem && (
                     <div className="flex gap-1.5 mt-1">
                       <Input
@@ -684,10 +693,11 @@ export default function TimePage() {
                           <SelectContent>
                             <SelectItem value="_none">— Keiner —</SelectItem>
                             {opts.map(name => (
-                              <SelectItem key={name} value={name}>{name}</SelectItem>
+                              <SelectItem key={name} value={name} hint={<BudgetHint budget={bookingBudgets.get(name)} />}>{name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        {form.vermittler_booking_item_text && <BudgetLine budget={bookingBudgets.get(form.vermittler_booking_item_text)} />}
                       </div>
                     )
                   })()}
