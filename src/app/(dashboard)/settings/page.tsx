@@ -13,7 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LanguageSwitcher } from "@/components/ui/language-switcher"
 import { toast } from "sonner"
 import { Sun, Moon, Monitor, ChevronUp, ChevronDown, FolderOpen, Download, Upload } from "lucide-react"
-import { saveHandleToIDB, loadHandleFromIDB, downloadBlob, writeToFolder } from "@/lib/backup-idb"
+import { saveHandleToIDB, loadHandleFromIDB, downloadBlob } from "@/lib/backup-idb"
+import {
+  BACKUP_SETTINGS_SYNCED_EVENT, KEY_FOLDER_NAME, isBackupStale, readBackupSettings,
+  recordBackupDone, saveBackupSchedule, saveBackupTime,
+} from "@/lib/backup-settings"
 import type { TaetigkeitField, UtilizationConfig } from "@/types/database"
 import { DEFAULT_TAETIGKEIT_FIELDS } from "@/lib/reports/taetigkeitsbericht-data"
 import { useTimerDisplay } from "@/lib/timer-display-context"
@@ -104,23 +108,62 @@ export default function SettingsPage() {
   const [backupTime, setBackupTime] = useState("02:00")
   const [backupFolderName, setBackupFolderName] = useState<string|null>(null)
   const [lastBackupAt, setLastBackupAt] = useState<string|null>(null)
+  const [folderStatus, setFolderStatus] = useState<"unknown" | "none" | "ok" | "prompt" | "lost">("unknown")
   const [exportLoading, setExportLoading] = useState(false)
   const [importLoading, setImportLoading] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setMounted(true)
-    const schedule = (localStorage.getItem("backupSchedule") ?? "never") as typeof backupSchedule
-    const last = localStorage.getItem("lastBackupAt")
-    const time = localStorage.getItem("backupTime") ?? "02:00"
-    const folder = localStorage.getItem("backupFolderName")
-    setBackupSchedule(schedule)
-    setBackupTime(time)
-    setBackupFolderName(folder)
-    setLastBackupAt(last)
+    const applyBackupSettings = () => {
+      const s = readBackupSettings()
+      setBackupSchedule(s.schedule)
+      setBackupTime(s.time)
+      setLastBackupAt(s.lastBackupAt)
+    }
+    applyBackupSettings()
+    setBackupFolderName(localStorage.getItem(KEY_FOLDER_NAME))
+    refreshFolderStatus()
     setTimerFieldItems(loadTimerFieldItems()) // also synced from context via ctxTimerFields below
+
+    const onDone = (e: Event) => setLastBackupAt((e as CustomEvent<{ at: string }>).detail?.at ?? readBackupSettings().lastBackupAt)
+    window.addEventListener(BACKUP_SETTINGS_SYNCED_EVENT, applyBackupSettings)
+    window.addEventListener("timori:backup-done", onDone)
+    return () => {
+      window.removeEventListener(BACKUP_SETTINGS_SYNCED_EVENT, applyBackupSettings)
+      window.removeEventListener("timori:backup-done", onDone)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /** Prüft, ob der gespeicherte Ordner wirklich noch verbunden ist (Name allein reicht nicht) */
+  async function refreshFolderStatus() {
+    const handle = await loadHandleFromIDB()
+    if (!handle) {
+      setFolderStatus(localStorage.getItem(KEY_FOLDER_NAME) ? "lost" : "none")
+      return
+    }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const perm = await (handle as any).queryPermission?.({ mode: "readwrite" }) ?? "prompt"
+      setFolderStatus(perm === "granted" ? "ok" : "prompt")
+    } catch {
+      setFolderStatus("lost")
+    }
+  }
+
+  async function confirmFolderAccess() {
+    const handle = await loadHandleFromIDB()
+    if (!handle) { setFolderStatus("lost"); return }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const perm = await (handle as any).requestPermission?.({ mode: "readwrite" }) ?? "denied"
+      setFolderStatus(perm === "granted" ? "ok" : "prompt")
+      if (perm === "granted") toast.success("Ordnerzugriff bestätigt")
+    } catch {
+      setFolderStatus("lost")
+    }
+  }
 
   async function handleSelectFolder() {
     if (!("showDirectoryPicker" in window)) {
@@ -132,7 +175,9 @@ export default function SettingsPage() {
       const handle = await (window as any).showDirectoryPicker({ mode: "readwrite" })
       await saveHandleToIDB(handle)
       setBackupFolderName(handle.name)
-      localStorage.setItem("backupFolderName", handle.name)
+      localStorage.setItem(KEY_FOLDER_NAME, handle.name)
+      setFolderStatus("ok")
+      toast.dismiss("backup-folder-lost")
       toast.success(`Ordner „${handle.name}" gespeichert`)
     } catch {
       // user cancelled
@@ -164,22 +209,21 @@ export default function SettingsPage() {
             const writable = await fileHandle.createWritable()
             await writable.write(blob)
             await writable.close()
-            const iso = new Date().toISOString()
-            setLastBackupAt(iso)
-            localStorage.setItem("lastBackupAt", iso)
+            setLastBackupAt(recordBackupDone(profile?.user_id))
+            setFolderStatus("ok")
             toast.success(`Backup gespeichert in „${backupFolderName ?? handle.name}"`)
           } else {
+            setFolderStatus("prompt")
             toast.error("Ordnerzugriff verweigert — bitte Backup-Ordner erneut auswählen")
           }
         } catch {
+          setFolderStatus("lost")
           toast.error("Backup fehlgeschlagen — bitte Backup-Ordner erneut auswählen")
         }
       } else {
         // No folder configured — download
         downloadBlob(blob, filename)
-        const iso = new Date().toISOString()
-        setLastBackupAt(iso)
-        localStorage.setItem("lastBackupAt", iso)
+        setLastBackupAt(recordBackupDone(profile?.user_id))
         toast.success(`Backup heruntergeladen: ${filename}`)
       }
     } catch {
@@ -217,12 +261,12 @@ export default function SettingsPage() {
 
   function handleScheduleChange(val: typeof backupSchedule) {
     setBackupSchedule(val)
-    localStorage.setItem("backupSchedule", val)
+    saveBackupSchedule(profile?.user_id, val)
   }
 
   function handleBackupTimeChange(val: string) {
     setBackupTime(val)
-    localStorage.setItem("backupTime", val)
+    saveBackupTime(profile?.user_id, val)
   }
 
   useEffect(() => {
@@ -640,7 +684,22 @@ export default function SettingsPage() {
                 Ordner wählen
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Einmalig einrichten — automatische Backups werden direkt in diesen Ordner gespeichert.</p>
+            {folderStatus === "lost" ? (
+              <p className="text-xs font-medium text-red-500">
+                Ordner nicht mehr verbunden — bitte über „Ordner wählen“ neu auswählen. Bis dahin werden Backups als Download gespeichert.
+              </p>
+            ) : folderStatus === "prompt" ? (
+              <p className="text-xs font-medium text-amber-600">
+                Der Browser verlangt eine erneute Bestätigung des Ordnerzugriffs.{" "}
+                <button type="button" onClick={confirmFolderAccess} className="underline underline-offset-2 hover:text-amber-700">
+                  Zugriff bestätigen
+                </button>
+              </p>
+            ) : folderStatus === "ok" ? (
+              <p className="text-xs text-green-600 dark:text-green-500">Ordner verbunden — automatische Backups werden direkt hier gespeichert.</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Einmalig einrichten — automatische Backups werden direkt in diesen Ordner gespeichert.</p>
+            )}
           </div>
 
           {/* Schedule + time + last backup */}
@@ -671,7 +730,7 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-2">
               <Label>Letztes Backup</Label>
-              <p className="text-sm text-muted-foreground pt-2">
+              <p className={`text-sm pt-2 ${backupSchedule !== "never" && isBackupStale(lastBackupAt) ? "font-medium text-red-500" : "text-muted-foreground"}`}>
                 {lastBackupAt
                   ? new Date(lastBackupAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })
                   : "Noch kein Backup erstellt"}

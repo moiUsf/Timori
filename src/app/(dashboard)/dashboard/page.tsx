@@ -10,6 +10,7 @@ import { getHolidays } from "@/lib/holidays"
 import type { GermanState } from "@/lib/holidays"
 import type { Client, UserProfile, VacationEntry } from "@/types/database"
 import { isBackupDue, downloadBlob, loadHandleFromIDB } from "@/lib/backup-idb"
+import { BACKUP_SETTINGS_SYNCED_EVENT, daysSince, isBackupStale, readBackupSettings, recordBackupDone } from "@/lib/backup-settings"
 import { toast } from "sonner"
 
 type ClientStat = {
@@ -51,7 +52,7 @@ export default function DashboardPage() {
   const [upcomingHolidays, setUpcomingHolidays] = useState<{ date: string; name: string }[]>([])
   const [vacationThisMonth, setVacationThisMonth] = useState<VacationEntry[]>([])
   const [userId, setUserId] = useState("")
-  const [backupReminder, setBackupReminder] = useState(false)
+  const [backupReminder, setBackupReminder] = useState<null | { kind: "missed" | "stale"; lastBackupAt: string | null }>(null)
   const [backupExporting, setBackupExporting] = useState(false)
 
   const loadData = useCallback(async (uid: string) => {
@@ -178,14 +179,25 @@ export default function DashboardPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) { setUserId(user.id); loadData(user.id) }
     })
-    const schedule = (localStorage.getItem("backupSchedule") ?? "never") as "never"|"daily"|"weekly"|"monthly"
-    const last = localStorage.getItem("lastBackupAt")
-    const time = localStorage.getItem("backupTime") ?? "02:00"
-    if (isBackupDue(schedule, last, time)) setBackupReminder(true)
+    const evaluateBackup = () => {
+      const { schedule, lastBackupAt, time } = readBackupSettings()
+      if (schedule !== "never" && lastBackupAt && isBackupStale(lastBackupAt)) {
+        setBackupReminder({ kind: "stale", lastBackupAt })
+      } else if (isBackupDue(schedule, lastBackupAt, time)) {
+        setBackupReminder({ kind: "missed", lastBackupAt })
+      } else {
+        setBackupReminder(null)
+      }
+    }
+    evaluateBackup()
 
-    const onBackupDone = () => setBackupReminder(false)
+    const onBackupDone = () => setBackupReminder(null)
     window.addEventListener("timori:backup-done", onBackupDone)
-    return () => window.removeEventListener("timori:backup-done", onBackupDone)
+    window.addEventListener(BACKUP_SETTINGS_SYNCED_EVENT, evaluateBackup)
+    return () => {
+      window.removeEventListener("timori:backup-done", onBackupDone)
+      window.removeEventListener(BACKUP_SETTINGS_SYNCED_EVENT, evaluateBackup)
+    }
   }, [supabase, loadData])
 
   useEffect(() => {
@@ -246,10 +258,8 @@ export default function DashboardPage() {
         toast.success(`Backup heruntergeladen: ${filename}`)
       }
 
-      const iso = new Date().toISOString()
-      localStorage.setItem("lastBackupAt", iso)
-      localStorage.removeItem("backupPendingSince")
-      setBackupReminder(false)
+      recordBackupDone(userId)
+      setBackupReminder(null)
     } catch {
       toast.error("Backup fehlgeschlagen")
     } finally {
@@ -281,7 +291,11 @@ export default function DashboardPage() {
       {backupReminder && (
         <div className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
           <Download className="h-4 w-4 shrink-0" />
-          <span className="flex-1">Dein automatisches Backup wurde verpasst. Möchtest du jetzt ein Backup erstellen?</span>
+          <span className="flex-1">
+            {backupReminder.kind === "stale" && backupReminder.lastBackupAt
+              ? `Dein letztes Backup ist ${daysSince(backupReminder.lastBackupAt)} Tage alt (${new Date(backupReminder.lastBackupAt).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}). Bitte prüfe den Backup-Ordner in den Einstellungen oder erstelle jetzt ein Backup.`
+              : "Dein automatisches Backup wurde verpasst. Möchtest du jetzt ein Backup erstellen?"}
+          </span>
           <button
             onClick={handleBackupNow}
             disabled={backupExporting}
@@ -289,7 +303,7 @@ export default function DashboardPage() {
           >
             {backupExporting ? "Wird erstellt…" : "Jetzt erstellen"}
           </button>
-          <button onClick={() => setBackupReminder(false)} className="shrink-0 text-amber-600 hover:text-amber-900 dark:hover:text-amber-100">
+          <button onClick={() => setBackupReminder(null)} className="shrink-0 text-amber-600 hover:text-amber-900 dark:hover:text-amber-100">
             <X className="h-4 w-4" />
           </button>
         </div>

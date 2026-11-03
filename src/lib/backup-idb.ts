@@ -48,24 +48,36 @@ export function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
-/** Write blob to a folder handle. Returns true if written, false if permission not granted. */
+/**
+ * Ergebnis beim Schreiben in den Backup-Ordner:
+ * - "ok": geschrieben
+ * - "no-permission": Browser verlangt erneute Bestätigung des Ordnerzugriffs
+ * - "error": Ordner nicht erreichbar (verschoben/gelöscht, Handle ungültig) → Ordner neu wählen
+ */
+export type FolderWriteResult = "ok" | "no-permission" | "error"
+
 export async function writeToFolder(
   handle: FileSystemDirectoryHandle,
   blob: Blob,
   filename: string
-): Promise<boolean> {
+): Promise<FolderWriteResult> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const h = handle as any
     const perm = await h.queryPermission?.({ mode: "readwrite" }) ?? "prompt"
-    if (perm !== "granted") return false
+    if (perm !== "granted") return "no-permission"
+  } catch {
+    return "error"
+  }
+  try {
     const fileHandle = await handle.getFileHandle(filename, { create: true })
     const writable = await fileHandle.createWritable()
     await writable.write(blob)
     await writable.close()
-    return true
-  } catch {
-    return false
+    return "ok"
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "NotAllowedError") return "no-permission"
+    return "error"
   }
 }
 

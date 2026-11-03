@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils"
 import { Sidebar } from "./sidebar"
 import { ActiveTimersBar } from "@/components/time/active-timers-bar"
 import { TimerDisplayProvider } from "@/lib/timer-display-context"
+import { useRouter } from "next/navigation"
 import { isBackupDue, downloadBlob, loadHandleFromIDB, writeToFolder } from "@/lib/backup-idb"
+import { KEY_FOLDER_NAME, readBackupSettings, recordBackupDone, syncBackupSettingsFromProfile } from "@/lib/backup-settings"
 import type { UserProfile } from "@/types/database"
 import type { User } from "@supabase/supabase-js"
 
@@ -26,6 +28,8 @@ export function DashboardShell({
   const [open, setOpen] = useState(false)
   const backupInProgress = useRef(false)
   const pendingToastShown = useRef(false)
+  const errorToastShown = useRef(false)
+  const router = useRouter()
 
   useEffect(() => {
     function makeFilename(now: Date): string {
@@ -42,19 +46,33 @@ export function DashboardShell({
     }
 
     function markDone() {
-      localStorage.setItem("lastBackupAt", new Date().toISOString())
-      localStorage.removeItem(PENDING_KEY)
+      recordBackupDone(user.id)
       pendingToastShown.current = false
+      errorToastShown.current = false
       toast.dismiss("backup-pending")
-      window.dispatchEvent(new CustomEvent("timori:backup-done"))
+      toast.dismiss("backup-error")
+    }
+
+    const goToSettings = { label: "Einstellungen", onClick: () => router.push("/settings") }
+
+    /** Fehler sichtbar machen – nur einmal pro Sitzung, damit der Minuten-Check nicht spammt */
+    function showError(message: string) {
+      if (errorToastShown.current) return
+      errorToastShown.current = true
+      toast.error(message, { id: "backup-error", duration: Infinity, action: goToSettings })
+    }
+
+    function folderLostWarning(folderName: string | null) {
+      toast.warning(
+        `Backup-Ordner${folderName ? ` „${folderName}"` : ""} nicht erreichbar — Backup wurde als Download gespeichert. Bitte Ordner in den Einstellungen neu wählen.`,
+        { id: "backup-folder-lost", duration: Infinity, action: goToSettings },
+      )
     }
 
     async function checkAndBackup() {
       if (backupInProgress.current) return
-      const schedule = (localStorage.getItem("backupSchedule") ?? "never") as "never"|"daily"|"weekly"|"monthly"
-      const last = localStorage.getItem("lastBackupAt")
-      const time = localStorage.getItem("backupTime") ?? "02:00"
-      if (!isBackupDue(schedule, last, time)) {
+      const { schedule, lastBackupAt, time } = readBackupSettings()
+      if (!isBackupDue(schedule, lastBackupAt, time)) {
         localStorage.removeItem(PENDING_KEY)
         pendingToastShown.current = false
         toast.dismiss("backup-pending")
@@ -64,25 +82,36 @@ export function DashboardShell({
       backupInProgress.current = true
       try {
         const handle = await loadHandleFromIDB()
+        const folderName = localStorage.getItem(KEY_FOLDER_NAME)
         const now = new Date()
         const filename = makeFilename(now)
 
+        const blob = await fetchBlob()
+        if (!blob) {
+          showError("Automatisches Backup fehlgeschlagen — Daten-Export nicht möglich. Bitte manuell in den Einstellungen prüfen.")
+          return
+        }
+
         if (!handle) {
-          const blob = await fetchBlob()
-          if (!blob) return
           downloadBlob(blob, filename)
           markDone()
-          toast.success(`Backup heruntergeladen: ${filename}`)
+          // Ordnername bekannt, aber Zugriff fehlt → Ordner ist "verloren gegangen"
+          if (folderName) folderLostWarning(folderName)
+          else toast.success(`Backup heruntergeladen: ${filename}`)
           return
         }
 
         // Folder configured — try to write there first
-        const blob = await fetchBlob()
-        if (!blob) return
-        const saved = await writeToFolder(handle, blob, filename)
-        if (saved) {
+        const result = await writeToFolder(handle, blob, filename)
+        if (result === "ok") {
           markDone()
           toast.success(`Backup gespeichert in „${handle.name}"`)
+          return
+        }
+        if (result === "error") {
+          downloadBlob(blob, filename)
+          markDone()
+          folderLostWarning(handle.name)
           return
         }
 
@@ -120,12 +149,14 @@ export function DashboardShell({
                   const freshBlob = await fetchBlob()
                   if (!freshBlob) { toast.error("Backup-Export fehlgeschlagen"); return }
                   const freshName = makeFilename(new Date())
-                  const ok = await writeToFolder(handle, freshBlob, freshName)
-                  if (ok) {
+                  const res = await writeToFolder(handle, freshBlob, freshName)
+                  if (res === "ok") {
                     markDone()
                     toast.success("Backup gespeichert")
                   } else {
-                    toast.error("Backup fehlgeschlagen")
+                    downloadBlob(freshBlob, freshName)
+                    markDone()
+                    folderLostWarning(handle.name)
                   }
                 } catch {
                   toast.error("Backup fehlgeschlagen")
@@ -134,16 +165,20 @@ export function DashboardShell({
             },
           })
         }
-      } catch {
-        // silent — reminder stays visible
+      } catch (e) {
+        console.error("Automatisches Backup fehlgeschlagen:", e)
+        showError("Automatisches Backup fehlgeschlagen. Bitte in den Einstellungen prüfen.")
       } finally {
         backupInProgress.current = false
       }
     }
 
+    // Einstellungen aus dem Profil übernehmen (überlebt Port-/Browserwechsel und gelöschte Browserdaten)
+    syncBackupSettingsFromProfile(profile)
     checkAndBackup() // immediate check on mount (catches missed backups)
     const interval = setInterval(checkAndBackup, 60_000) // re-check every minute
     return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
