@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -47,6 +48,7 @@ export function AddTileDialog({ open, hoursPerDay, userId, utilConfig, initialTi
   const [carryOver, setCarryOver] = useState(utilConfig.default_carry_over ?? false)
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
+  const [description, setDescription] = useState("")
   const [loading, setLoading] = useState(false)
   // Holds the entity id to select once entities have loaded (needed for edit mode)
   const [pendingEntityId, setPendingEntityId] = useState<string | null>(null)
@@ -66,6 +68,7 @@ export function AddTileDialog({ open, hoursPerDay, userId, utilConfig, initialTi
       setCarryOver(initialTile.carry_over ?? false)
       setDateFrom(initialTile.date_from ?? "")
       setDateTo(initialTile.date_to ?? "")
+      setDescription(initialTile.description ?? "")
       setPendingEntityId(initialTile.entity_id)
     } else {
       setTileType(utilConfig.default_type ?? "project")
@@ -177,6 +180,7 @@ export function AddTileDialog({ open, hoursPerDay, userId, utilConfig, initialTi
       date_to: period === "range" ? dateTo : undefined,
       client_name: clients.find((c) => c.id === selectedClientId)?.name,
       client_id: selectedClientId || undefined,
+      description: description.trim() || undefined,
     }
     onSave(tile)
     handleClose()
@@ -193,6 +197,7 @@ export function AddTileDialog({ open, hoursPerDay, userId, utilConfig, initialTi
     setCarryOver(utilConfig.default_carry_over ?? false)
     setDateFrom("")
     setDateTo("")
+    setDescription("")
     setPendingEntityId(null)
     onClose()
   }
@@ -206,7 +211,7 @@ export function AddTileDialog({ open, hoursPerDay, userId, utilConfig, initialTi
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? t("editTitle") : t("dialogTitle")}</DialogTitle>
         </DialogHeader>
@@ -378,6 +383,17 @@ export function AddTileDialog({ open, hoursPerDay, userId, utilConfig, initialTi
               </div>
             </div>
           )}
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <Label htmlFor="tile-description">{t("note")}</Label>
+            <Textarea
+              id="tile-description"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
         </div>
 
         <DialogFooter>

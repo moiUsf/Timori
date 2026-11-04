@@ -232,6 +232,9 @@
   },
   "auslastung": {
     "title": "Vista de utilización",
+    "asOf": "Fecha de referencia",
+    "asOfReset": "Restablecer",
+    "note": "Descripción / nota",
     "addTile": "Agregar mosaico",
     "noTiles": "Sin mosaicos. Haz clic en \"Agregar mosaico\" para comenzar.",
     "budget": "Presupuesto",

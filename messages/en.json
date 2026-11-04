@@ -263,6 +263,9 @@
   },
   "auslastung": {
     "title": "Utilization Overview",
+    "asOf": "As of",
+    "asOfReset": "Reset",
+    "note": "Description / note",
     "addTile": "Add Tile",
     "noTiles": "No tiles yet. Click \"Add Tile\" to get started.",
     "budget": "Budget",

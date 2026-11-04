@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useMemo, type ReactNode } from "react"
+import { useEffect, useRef, useState, useCallback, useMemo, type ReactNode } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import { computeTileUsage, type TileUsage } from "@/lib/utilization"
@@ -39,7 +39,8 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
   const [tiles, setTiles] = useState<UtilizationTile[]>(initialTiles)
   const [consumedMap, setConsumedMap] = useState<Record<string, TileResult>>({})
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
-  const [selectedMonth, setSelectedMonth] = useState(currentYearMonth())
+  const [asOf, setAsOf] = useState("")
+  const latestAsOf = useRef("")
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [editingTile, setEditingTile] = useState<UtilizationTile | null>(null)
   const [search, setSearch] = useState("")
@@ -50,7 +51,10 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
     } catch { return [] }
   })
 
-  const hasMonthlyTile = tiles.some((tile) => tile.period === "monthly")
+  function changeAsOf(value: string) {
+    latestAsOf.current = value
+    setAsOf(value)
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -147,12 +151,15 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
       if (tilesToLoad.length === 0) return
       const ids = tilesToLoad.map((tile) => tile.id)
       setLoadingIds((prev) => new Set([...prev, ...ids]))
+      const month = asOf ? asOf.slice(0, 7) : currentYearMonth()
       try {
         const results = await Promise.all(
           tilesToLoad.map(async (tile): Promise<{ id: string } & TileResult> => {
-            return { id: tile.id, ...(await computeTileUsage(supabase, userId, tile, selectedMonth)) }
+            return { id: tile.id, ...(await computeTileUsage(supabase, userId, tile, month, asOf || undefined)) }
           })
         )
+        // Stichtag wurde inzwischen geändert: die neuere Abfrage liefert das Ergebnis
+        if (latestAsOf.current !== asOf) return
         setConsumedMap((prev) => {
           const next = { ...prev }
           results.forEach(({ id, consumedH, effectiveBudget }) => {
@@ -161,21 +168,23 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
           return next
         })
       } finally {
-        setLoadingIds((prev) => {
-          const next = new Set(prev)
-          ids.forEach((id) => next.delete(id))
-          return next
-        })
+        if (latestAsOf.current === asOf) {
+          setLoadingIds((prev) => {
+            const next = new Set(prev)
+            ids.forEach((id) => next.delete(id))
+            return next
+          })
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [userId, selectedMonth]
+    [userId, asOf]
   )
 
   useEffect(() => {
     if (tiles.length > 0) loadConsumed(tiles)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth, tiles.length, loadConsumed])
+  }, [tiles.length, loadConsumed])
 
   async function saveTiles(newTiles: UtilizationTile[]): Promise<boolean> {
     const prev = tiles
@@ -221,14 +230,24 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{t("title")}</h1>
-        <div className="flex items-center gap-2">
-          {hasMonthlyTile && (
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+        <div className="flex items-center gap-2 max-lg:flex-wrap">
+          {tiles.length > 0 && (
+            <>
+              {asOf && (
+                <Button variant="ghost" size="sm" onClick={() => changeAsOf("")}>
+                  {t("asOfReset")}
+                </Button>
+              )}
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                {t("asOf")}
+                <input
+                  type="date"
+                  value={asOf}
+                  onChange={(e) => changeAsOf(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </label>
+            </>
           )}
           <Button onClick={() => setAddDialogOpen(true)} size="sm">
             <Plus className="h-4 w-4 mr-1" />
@@ -323,6 +342,7 @@ export function UtilizationPage({ userId, initialTiles, hoursPerDay, utilConfig 
                           effectiveBudget={consumedMap[tile.id]?.effectiveBudget}
                           loading={loadingIds.has(tile.id)}
                           hoursPerDay={hoursPerDay}
+                          asOf={asOf || undefined}
                           onDelete={handleDelete}
                           onEdit={setEditingTile}
                         />

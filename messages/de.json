@@ -263,6 +263,9 @@
   },
   "auslastung": {
     "title": "Auslastungsübersicht",
+    "asOf": "Stichtag",
+    "asOfReset": "Zurücksetzen",
+    "note": "Beschreibung / Hinweis",
     "addTile": "Kachel hinzufügen",
     "noTiles": "Noch keine Kacheln. Klicke auf \"Kachel hinzufügen\" um loszulegen.",
     "budget": "Budget",

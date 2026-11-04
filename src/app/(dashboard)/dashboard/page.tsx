@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock, Umbrella, TrendingUp, CalendarDays, Download, X, Palmtree } from "lucide-react"
 import { formatHours, formatMonthYear, toLocalDateStr } from "@/lib/utils"
+import { computeCarryAmount } from "@/lib/utilization"
 import { getHolidays } from "@/lib/holidays"
 import type { GermanState } from "@/lib/holidays"
 import type { Client, UserProfile, VacationEntry } from "@/types/database"
@@ -129,11 +130,7 @@ export default function DashboardPage() {
             byMonth[key] = (byMonth[key] ?? 0) + row.net_h
           }
           const currentKey = startOfMonth.slice(0, 7)
-          let carry = 0
-          for (const m of Object.keys(byMonth).sort()) {
-            if (m >= currentKey) break
-            carry = Math.max(0, c.budget_h! + carry - byMonth[m])
-          }
+          const carry = computeCarryAmount(c.budget_h!, byMonth, currentKey)
           consumed_h = byMonth[currentKey] ?? 0
           booked_h = c.budget_h! + carry
           period_label = `Monatlich · ${fmtBudget(c.budget_h!, c.budget_unit)}${carry > 0 ? " · Übertrag" : ""}`

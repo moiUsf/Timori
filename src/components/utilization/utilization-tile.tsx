@@ -1,10 +1,12 @@
 "use client"
 
+import { useRef, useState } from "react"
 import { useTranslations } from "next-intl"
+import * as Popover from "@radix-ui/react-popover"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, Pencil, GripVertical } from "lucide-react"
+import { Trash2, Pencil, GripVertical, Info } from "lucide-react"
 import { formatHours } from "@/lib/utils"
 import type { UtilizationTile as TileType } from "@/types/database"
 import { useSortable } from "@dnd-kit/sortable"
@@ -16,6 +18,7 @@ interface UtilizationTileProps {
   effectiveBudget?: number
   loading: boolean
   hoursPerDay: number
+  asOf?: string
   onDelete: (id: string) => void
   onEdit: (tile: TileType) => void
 }
@@ -26,12 +29,63 @@ function barColor(pct: number) {
   return "bg-primary"
 }
 
+/** Info-Symbol mit schwebender Box: Maus per Überfahren, Touch per Antippen. */
+function TileNote({ text, label }: { text: string; label: string }) {
+  const [open, setOpen] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function cancelClose() {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+  }
+  function openOnHover(e: React.PointerEvent) {
+    if (e.pointerType !== "mouse") return
+    cancelClose()
+    setOpen(true)
+  }
+  function closeOnLeave(e: React.PointerEvent) {
+    if (e.pointerType !== "mouse") return
+    cancelClose()
+    closeTimer.current = setTimeout(() => setOpen(false), 150)
+  }
+
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+          aria-label={label}
+          onPointerEnter={openOnHover}
+          onPointerLeave={closeOnLeave}
+        >
+          <Info className="h-3.5 w-3.5" />
+        </Button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={4}
+          collisionPadding={8}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onPointerEnter={openOnHover}
+          onPointerLeave={closeOnLeave}
+          className="z-50 max-h-64 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto whitespace-pre-wrap break-words rounded-md border bg-popover p-3 text-xs text-popover-foreground shadow-md outline-none"
+        >
+          {text}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
+
 export function UtilizationTile({
   tile,
   consumedH,
   effectiveBudget,
   loading,
   hoursPerDay,
+  asOf,
   onDelete,
   onEdit,
 }: UtilizationTileProps) {
@@ -58,10 +112,14 @@ export function UtilizationTile({
 
   const rangeDateClass = (() => {
     if (tile.period !== "range" || !tile.date_to) return ""
-    const now = new Date(); now.setHours(0, 0, 0, 0)
-    const [y, m, d] = tile.date_to.split("-").map(Number)
-    const end = new Date(y, m - 1, d)
-    const diffDays = Math.floor((end.getTime() - now.getTime()) / 86_400_000)
+    const toLocalDate = (s: string) => {
+      const [y, m, d] = s.split("-").map(Number)
+      return new Date(y, m - 1, d)
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const reference = asOf ? toLocalDate(asOf) : today
+    const end = toLocalDate(tile.date_to)
+    const diffDays = Math.round((end.getTime() - reference.getTime()) / 86_400_000)
     if (diffDays < 0) return "text-red-500 font-medium"
     if (diffDays <= 21) return "text-amber-500 font-medium"
     return ""
@@ -101,6 +159,7 @@ export function UtilizationTile({
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {tile.description && <TileNote text={tile.description} label={t("note")} />}
             <Button
               variant="ghost"
               size="icon"

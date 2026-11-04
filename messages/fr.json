@@ -263,6 +263,9 @@
   },
   "auslastung": {
     "title": "Vue d'utilisation",
+    "asOf": "Date de référence",
+    "asOfReset": "Réinitialiser",
+    "note": "Description / remarque",
     "addTile": "Ajouter une tuile",
     "noTiles": "Aucune tuile. Cliquez sur \"Ajouter une tuile\" pour commencer.",
     "budget": "Budget",

@@ -13,6 +13,7 @@ export interface UtilizationTile {
   date_to?: string       // range only: YYYY-MM-DD
   client_name?: string   // denormalized client name for grouping
   client_id?: string     // stored to pre-fill client dropdown on edit
+  description?: string   // free-text note shown via the tile's info icon
 }
 export type TaetigkeitField = "booking_item" | "task" | "description" | "project"
 
