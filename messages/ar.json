@@ -57,6 +57,15 @@
     "sentTitle": "تم إرسال البريد الإلكتروني",
     "sentDescription": "أرسلنا رابط إعادة التعيين إلى {email}.",
     "sentHint": "يرجى التحقق من صندوق الوارد والنقر على الرابط لتغيير كلمة المرور.",
+    "newPasswordTitle": "تعيين كلمة مرور جديدة",
+    "newPasswordDescription": "أدخل كلمة المرور الجديدة مرتين.",
+    "newPasswordLabel": "كلمة المرور الجديدة",
+    "newPasswordConfirm": "تكرار كلمة المرور",
+    "newPasswordSubmit": "حفظ كلمة المرور",
+    "newPasswordMismatch": "كلمتا المرور غير متطابقتين.",
+    "newPasswordSaved": "تم تغيير كلمة المرور.",
+    "newPasswordInvalidTitle": "الرابط غير صالح أو منتهي الصلاحية",
+    "newPasswordInvalidDescription": "يرجى طلب رابط جديد من صفحة تسجيل الدخول وفتحه في المتصفح نفسه.",
     "errorEmailRequired": "يرجى إدخال بريدك الإلكتروني"
   },
   "dashboard": {

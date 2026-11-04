@@ -1,34 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createServiceClient } from "@/lib/supabase/service"
-import { sendAdminApprovalEmail } from "@/lib/email"
+import { ensureProfileAndNotifyAdmin } from "@/lib/registration"
 
+/**
+ * Wird direkt nach signUp() aus dem Browser aufgerufen – zu diesem Zeitpunkt gibt es bei
+ * aktiver E-Mail-Bestätigung noch keine Session, daher öffentlich.
+ * Schutz vor Missbrauch: nur Accounts < 24 h, nur Status "pending", Mail höchstens einmal (admin_notified_at).
+ */
 export async function POST(request: NextRequest) {
-  const { userId } = await request.json() as { userId: string }
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 })
+  let userId: string | undefined
+  try {
+    ({ userId } = (await request.json()) as { userId?: string })
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+  if (!userId || !/^[0-9a-f-]{36}$/i.test(userId)) {
+    return NextResponse.json({ error: "Missing or invalid userId" }, { status: 400 })
+  }
 
-  const supabase = createServiceClient()
-
-  const { data: profile } = await supabase
-    .from("users_profile")
-    .select("name, approval_token, created_at")
-    .eq("user_id", userId)
-    .single()
-
-  if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 })
-
-  const { data: authUser } = await supabase.auth.admin.getUserById(userId)
-  if (!authUser?.user?.email) return NextResponse.json({ error: "User not found" }, { status: 404 })
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  const token = profile.approval_token
-
-  await sendAdminApprovalEmail({
-    userName: profile.name,
-    userEmail: authUser.user.email,
-    registeredAt: profile.created_at,
-    approveUrl: `${appUrl}/api/admin/approve?token=${token}&action=approve`,
-    rejectUrl: `${appUrl}/api/admin/approve?token=${token}&action=reject`,
-  })
-
-  return NextResponse.json({ ok: true })
+  try {
+    const result = await ensureProfileAndNotifyAdmin(userId, { enforceMaxAge: true })
+    console.info(`[admin-notify] user=${userId} result=${JSON.stringify(result)}`)
+    return NextResponse.json({ ok: true, ...result })
+  } catch (err) {
+    console.error(`[admin-notify] user=${userId} FEHLGESCHLAGEN:`, err)
+    return NextResponse.json({ error: "Admin-Benachrichtigung fehlgeschlagen" }, { status: 500 })
+  }
 }

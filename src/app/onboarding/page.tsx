@@ -65,12 +65,8 @@ export default function OnboardingPage() {
       return
     }
 
-    // Create free subscription
-    await supabase.from("subscriptions").upsert({
-      user_id: user.id,
-      plan: "free",
-      status: "active",
-    }, { onConflict: "user_id" })
+    // Free-Subscription legt der DB-Trigger on_auth_user_created an (Migration 013) –
+    // Nutzer dürfen subscriptions nicht selbst schreiben (Migration 014).
 
     router.push("/dashboard")
   }

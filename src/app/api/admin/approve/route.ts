@@ -82,21 +82,31 @@ export async function GET(request: NextRequest) {
 
   const { data: authUser } = await supabase.auth.admin.getUserById(profile.user_id)
   const userEmail = authUser?.user?.email
+  let emailSent = false
   if (userEmail) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-    await sendUserNotificationEmail({
-      userName: profile.name,
-      userEmail,
-      action,
-      loginUrl: `${appUrl}/login`,
-    }).catch(err => console.error("[approve] user email failed:", err))
+    try {
+      await sendUserNotificationEmail({
+        userName: profile.name,
+        userEmail,
+        action,
+        loginUrl: `${appUrl}/login`,
+      })
+      emailSent = true
+    } catch (err) {
+      console.error("[approve] user email failed:", err)
+    }
   }
+
+  const emailNote = emailSent
+    ? "Der Benutzer wurde per E-Mail informiert."
+    : "<strong>Die E-Mail an den Benutzer konnte nicht gesendet werden.</strong> Bitte informiere ihn selbst."
 
   return htmlPage(
     isApprove ? "Account freigeschaltet" : "Registrierung abgelehnt",
     `<p>${isApprove
-      ? `Der Account von <strong>${profile.name}</strong> wurde freigeschaltet. Der Benutzer wurde per E-Mail informiert.`
-      : `Die Registrierung von <strong>${profile.name}</strong> wurde abgelehnt. Der Benutzer wurde per E-Mail informiert.`
+      ? `Der Account von <strong>${profile.name}</strong> wurde freigeschaltet. ${emailNote}`
+      : `Die Registrierung von <strong>${profile.name}</strong> wurde abgelehnt. ${emailNote}`
     }</p>`,
     isApprove
   )

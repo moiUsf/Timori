@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
+  const [submitted, setSubmitted] = useState(false)
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
@@ -36,35 +37,26 @@ export default function RegisterPage() {
     }
 
     if (data.user) {
-      // Create profile (approved defaults to false via migration 008)
-      const { error: profileError } = await supabase.from("users_profile").insert({
-        user_id: data.user.id,
-        name,
-        personal_nr: null,
-        working_hours_per_day: 8,
-        vacation_quota: 30,
-        federal_state: "DE-NW",
-        hourly_rate: null,
-      })
-
-      if (profileError) {
-        toast.error("Profil konnte nicht erstellt werden: " + profileError.message)
-        setLoading(false)
-        return
-      }
-
-      // Admin benachrichtigen (non-fatal)
+      // Das Profil legt der DB-Trigger on_auth_user_created an (security definer).
+      // Aus dem Browser geht das nicht: bei aktiver E-Mail-Bestätigung gibt es hier noch keine Session → RLS blockiert.
+      // Admin benachrichtigen – serverseitig, unabhängig von der Mail-Bestätigung (non-fatal, wird sonst beim ersten Login nachgeholt).
       try {
-        await fetch("/api/admin/notify", {
+        const res = await fetch("/api/admin/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: data.user.id }),
         })
-      } catch {
-        // Registrierung ist bereits abgeschlossen
+        if (!res.ok) console.warn("Admin-Benachrichtigung fehlgeschlagen:", res.status)
+      } catch (err) {
+        console.warn("Admin-Benachrichtigung fehlgeschlagen:", err)
       }
 
-      router.push("/pending-approval")
+      if (data.session) {
+        // E-Mail-Bestätigung deaktiviert → direkt eingeloggt
+        router.push("/pending-approval")
+      } else {
+        setSubmitted(true)
+      }
     }
     setLoading(false)
   }
@@ -80,6 +72,23 @@ export default function RegisterPage() {
           <p className="text-sm text-muted-foreground">Freelance Zeiterfassung</p>
         </div>
 
+        {submitted ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Registrierung eingegangen</CardTitle>
+            <CardDescription>Danke, {name}! Dein Account wurde angelegt.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>Bitte bestätige zuerst deine E-Mail-Adresse über den Link, den wir an {email} gesendet haben.</p>
+            <p>Dein Account wird in den nächsten 48 Stunden zur Freigabe geprüft. Du wirst per E-Mail informiert, sobald die Prüfung abgeschlossen ist.</p>
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" className="w-full" asChild>
+              <Link href="/login">Zur Anmeldung</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+        ) : (
         <Card>
           <CardHeader>
             <CardTitle>Konto erstellen</CardTitle>
@@ -134,6 +143,7 @@ export default function RegisterPage() {
             </CardFooter>
           </form>
         </Card>
+        )}
       </div>
     </div>
   )

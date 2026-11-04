@@ -57,6 +57,15 @@
     "sentTitle": "Correo enviado",
     "sentDescription": "Hemos enviado un enlace de restablecimiento a {email}.",
     "sentHint": "Por favor revisa tu bandeja de entrada y haz clic en el enlace para cambiar tu contraseña.",
+    "newPasswordTitle": "Establecer una nueva contraseña",
+    "newPasswordDescription": "Introduce tu nueva contraseña dos veces.",
+    "newPasswordLabel": "Nueva contraseña",
+    "newPasswordConfirm": "Repetir contraseña",
+    "newPasswordSubmit": "Guardar contraseña",
+    "newPasswordMismatch": "Las contraseñas no coinciden.",
+    "newPasswordSaved": "Tu contraseña ha sido cambiada.",
+    "newPasswordInvalidTitle": "Enlace no válido o caducado",
+    "newPasswordInvalidDescription": "Solicita un nuevo enlace en la página de inicio de sesión y ábrelo en el mismo navegador.",
     "errorEmailRequired": "Por favor ingresa tu correo electrónico"
   },
   "dashboard": {

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { ensureProfileAndNotifyAdmin } from "@/lib/registration"
 import { Clock } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -7,6 +8,15 @@ export default async function PendingApprovalPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
+
+  // Fallback: Profil sicherstellen + Admin-Mail nachholen, falls sie direkt nach der Registrierung nicht rausging.
+  // Idempotent (admin_notified_at), Fehler nur loggen – die Seite soll trotzdem angezeigt werden.
+  try {
+    const result = await ensureProfileAndNotifyAdmin(user.id)
+    if (result.status === "sent") console.info(`[admin-notify] nachgeholt für user=${user.id}`)
+  } catch (err) {
+    console.error(`[admin-notify] Fallback auf /pending-approval fehlgeschlagen, user=${user.id}:`, err)
+  }
 
   const { data: profile } = await supabase
     .from("users_profile")
@@ -46,7 +56,7 @@ export default async function PendingApprovalPage() {
             <p className="text-sm text-muted-foreground">
               {isRejected
                 ? "Falls du glaubst, dass dies ein Fehler ist, wende dich bitte an den Administrator."
-                : "Du erhältst eine E-Mail, sobald dein Account freigeschaltet wurde. Dies dauert in der Regel weniger als 24 Stunden."}
+                : "Dein Account wird in den nächsten 48 Stunden zur Freigabe geprüft. Du wirst per E-Mail informiert, sobald die Prüfung abgeschlossen ist."}
             </p>
           </CardContent>
         </Card>

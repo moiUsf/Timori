@@ -57,6 +57,15 @@
     "sentTitle": "E-mail envoyé",
     "sentDescription": "Nous avons envoyé un lien de réinitialisation à {email}.",
     "sentHint": "Veuillez vérifier votre boîte de réception et cliquer sur le lien pour changer votre mot de passe.",
+    "newPasswordTitle": "Définir un nouveau mot de passe",
+    "newPasswordDescription": "Saisissez deux fois votre nouveau mot de passe.",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "newPasswordConfirm": "Répéter le mot de passe",
+    "newPasswordSubmit": "Enregistrer le mot de passe",
+    "newPasswordMismatch": "Les mots de passe ne correspondent pas.",
+    "newPasswordSaved": "Votre mot de passe a été modifié.",
+    "newPasswordInvalidTitle": "Lien invalide ou expiré",
+    "newPasswordInvalidDescription": "Veuillez demander un nouveau lien sur la page de connexion et l'ouvrir dans le même navigateur.",
     "errorEmailRequired": "Veuillez saisir votre e-mail"
   },
   "dashboard": {

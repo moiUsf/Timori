@@ -33,15 +33,21 @@ export async function POST(request: NextRequest) {
 
   const { data: authUser } = await admin.auth.admin.getUserById(userId)
   const userEmail = authUser?.user?.email
+  let emailSent = false
   if (userEmail) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-    await sendUserNotificationEmail({
-      userName: profile.name,
-      userEmail,
-      action,
-      loginUrl: `${appUrl}/login`,
-    }).catch(err => console.error("[set-status] email failed:", err))
+    try {
+      await sendUserNotificationEmail({
+        userName: profile.name,
+        userEmail,
+        action,
+        loginUrl: `${appUrl}/login`,
+      })
+      emailSent = true
+    } catch (err) {
+      console.error("[set-status] email failed:", err)
+    }
   }
 
-  return NextResponse.json({ ok: true, newStatus: isApprove ? "approved" : "rejected" })
+  return NextResponse.json({ ok: true, newStatus: isApprove ? "approved" : "rejected", emailSent })
 }

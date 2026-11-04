@@ -49,6 +49,7 @@ export interface UserProfile {
   approved: boolean
   approval_status: "pending" | "approved" | "rejected"
   approval_token: string
+  admin_notified_at?: string | null
   backup_schedule?: "never" | "daily" | "weekly" | "monthly"
   backup_time?: string
   last_backup_at?: string | null

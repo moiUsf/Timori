@@ -57,6 +57,15 @@
     "sentTitle": "E-Mail gesendet",
     "sentDescription": "Wir haben einen Reset-Link an {email} gesendet.",
     "sentHint": "Bitte prüfe dein Postfach und klicke auf den Link um dein Passwort zu ändern.",
+    "newPasswordTitle": "Neues Passwort festlegen",
+    "newPasswordDescription": "Gib dein neues Passwort zweimal ein.",
+    "newPasswordLabel": "Neues Passwort",
+    "newPasswordConfirm": "Passwort wiederholen",
+    "newPasswordSubmit": "Passwort speichern",
+    "newPasswordMismatch": "Die Passwörter stimmen nicht überein.",
+    "newPasswordSaved": "Dein Passwort wurde geändert.",
+    "newPasswordInvalidTitle": "Link ungültig oder abgelaufen",
+    "newPasswordInvalidDescription": "Bitte fordere auf der Anmeldeseite über „Passwort vergessen?“ einen neuen Link an und öffne ihn im selben Browser.",
     "errorEmailRequired": "Bitte E-Mail eingeben"
   },
   "dashboard": {

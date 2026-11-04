@@ -36,13 +36,14 @@ export function UserTable() {
       body: JSON.stringify({ userId, action }),
     })
     if (res.ok) {
-      const { newStatus } = await res.json()
+      const { newStatus, emailSent } = await res.json()
       setUsers(prev => prev.map(u =>
         u.user_id === userId
           ? { ...u, approval_status: newStatus, approved: newStatus === "approved" }
           : u
       ))
       toast.success(action === "approve" ? "Nutzer freigeschaltet" : "Registrierung abgelehnt")
+      if (!emailSent) toast.warning("Die E-Mail an den Nutzer konnte nicht gesendet werden. Bitte informiere ihn selbst.")
     } else {
       toast.error("Aktion fehlgeschlagen")
     }

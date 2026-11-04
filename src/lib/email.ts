@@ -7,6 +7,13 @@ function getResend(): Resend {
   resendClient ??= new Resend(process.env.RESEND_API_KEY)
   return resendClient
 }
+/** Resend v6 wirft bei API-Fehlern nicht, sondern liefert { error } – hier in eine Exception umwandeln */
+async function sendOrThrow(payload: Parameters<Resend["emails"]["send"]>[0]) {
+  const { data, error } = await getResend().emails.send(payload)
+  if (error) throw new Error(`Resend-Fehler (${error.name}): ${error.message}`)
+  return data
+}
+
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "youssef.elouatiq@intellinq.de"
 const FROM_ADDRESS = process.env.EMAIL_FROM ?? "Timori <noreply@resend.dev>"
 
@@ -23,7 +30,7 @@ export async function sendAdminApprovalEmail(params: {
     hour: "2-digit", minute: "2-digit",
   })
 
-  return getResend().emails.send({
+  return sendOrThrow({
     from: FROM_ADDRESS,
     to: ADMIN_EMAIL,
     subject: `[Timori] Neue Registrierung: ${userName} (${userEmail})`,
@@ -81,7 +88,7 @@ export async function sendUserNotificationEmail(params: {
   const { userName, userEmail, action, loginUrl } = params
   const isApproved = action === "approve"
 
-  return getResend().emails.send({
+  return sendOrThrow({
     from: FROM_ADDRESS,
     to: userEmail,
     subject: isApproved

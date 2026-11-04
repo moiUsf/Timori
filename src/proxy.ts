@@ -27,8 +27,17 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Mit und ohne Session erreichbar, ohne Umleitung; die Routen schützen sich selbst:
+  // notify (direkt nach signUp, nur frische Accounts, höchstens eine Mail), approve (Link aus der Admin-Mail, per Token),
+  // callback (löst den Link aus der Mail ein, auch wenn schon jemand angemeldet ist),
+  // reset-password (zeigt das Formular nur mit Session, sonst den Hinweis auf einen ungültigen Link)
+  const alwaysReachablePaths = ["/api/admin/notify", "/api/admin/approve", "/auth/callback", "/reset-password"]
+  if (alwaysReachablePaths.includes(pathname)) {
+    return supabaseResponse
+  }
+
   // Public routes
-  const publicPaths = ["/login", "/register", "/auth/callback"]
+  const publicPaths = ["/login", "/register"]
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     if (user) {
       return NextResponse.redirect(new URL("/dashboard", request.url))

@@ -57,6 +57,15 @@
     "sentTitle": "Email sent",
     "sentDescription": "We sent a reset link to {email}.",
     "sentHint": "Please check your inbox and click the link to change your password.",
+    "newPasswordTitle": "Set a new password",
+    "newPasswordDescription": "Enter your new password twice.",
+    "newPasswordLabel": "New password",
+    "newPasswordConfirm": "Repeat password",
+    "newPasswordSubmit": "Save password",
+    "newPasswordMismatch": "The passwords do not match.",
+    "newPasswordSaved": "Your password has been changed.",
+    "newPasswordInvalidTitle": "Link invalid or expired",
+    "newPasswordInvalidDescription": "Please request a new link on the sign-in page and open it in the same browser.",
     "errorEmailRequired": "Please enter your email"
   },
   "dashboard": {

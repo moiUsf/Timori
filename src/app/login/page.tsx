@@ -43,7 +43,7 @@ export default function LoginPage() {
     if (!resetEmail.trim()) { toast.error(t("errorEmailRequired")); return }
     setLoading(true)
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
     })
     if (error) {
       toast.error(error.message)
