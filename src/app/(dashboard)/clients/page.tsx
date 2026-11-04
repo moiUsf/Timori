@@ -1141,7 +1141,7 @@ export default function ClientsPage() {
 
       {/* Booking dialog */}
       <Dialog open={bookingDialog} onOpenChange={setBookingDialog}>
-        <DialogContent className="w-full min-w-0 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full min-w-0 grid-cols-[minmax(0,1fr)] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingBooking ? "Buchungsposten bearbeiten" : "Neuer Buchungsposten"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
