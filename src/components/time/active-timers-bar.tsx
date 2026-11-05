@@ -126,6 +126,7 @@ export function ActiveTimersBar({ userId }: ActiveTimersBarProps) {
       net_h: Math.round(netHours * 100) / 100,
       task_id: timer.task_id ?? null,
       booking_item_text: timer.booking_item_text ?? "",
+      vermittler_booking_item_text: timer.vermittler_booking_item_text ?? "",
     })
 
     await supabase.from("active_timers").delete().eq("id", timer.id)

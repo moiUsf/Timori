@@ -275,6 +275,7 @@ export default function TimePage() {
       projectId: entry.project_id ?? undefined,
       taskId: entry.task_id ?? undefined,
       bookingItemText: entry.booking_item_text ?? "",
+      vermittlerBookingItemText: entry.vermittler_booking_item_text ?? "",
       description: entry.description ?? "",
       code: entry.code,
     })

@@ -24,6 +24,7 @@ export interface TimerInitialValues {
   projectId?: string
   taskId?: string
   bookingItemText?: string
+  vermittlerBookingItemText?: string
   description?: string
   code?: HourCode
 }
@@ -49,6 +50,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [bookingItems, setBookingItems] = useState<BookingItemOption[]>([])
+  const [bookingItemsClientId, setBookingItemsClientId] = useState("")
   const [clientId, setClientId] = useState("")
   const [projectId, setProjectId] = useState("")
   const [taskId, setTaskId] = useState("")
@@ -77,6 +79,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
     if (initialValues.projectId) setProjectId(initialValues.projectId)
     if (initialValues.taskId) setTaskId(initialValues.taskId)
     if (initialValues.bookingItemText !== undefined) setBookingItemText(initialValues.bookingItemText)
+    if (initialValues.vermittlerBookingItemText !== undefined) setVermittlerBookingItemText(initialValues.vermittlerBookingItemText)
     if (initialValues.description !== undefined) setDescription(initialValues.description)
     if (initialValues.code) setCode(initialValues.code)
   }, [open])
@@ -94,8 +97,19 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
     ]).then(([pRes, bookingOptions]) => {
       setProjects(pRes.data ?? [])
       setBookingItems(bookingOptions)
+      setBookingItemsClientId(clientId)
     })
   }, [clientId, supabase, userId])
+
+  // Genau ein verknüpfter Vermittler-BP: automatisch vorauswählen. Läuft nur bei
+  // Änderung des Buchungspostens, damit ein manuelles "Keiner" bestehen bleibt.
+  useEffect(() => {
+    if (bookingItemsClientId !== clientId) return
+    const linked = bookingItems
+      .filter(b => b.kind === "own" && b.name === bookingItemText)
+      .flatMap(b => b.linkedVermittlerItemNames ?? [])
+    if (linked.length === 1) setVermittlerBookingItemText(current => current || linked[0])
+  }, [bookingItems, bookingItemsClientId, clientId, bookingItemText])
 
   useEffect(() => {
     if (!userId) return
@@ -213,7 +227,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
           {/* Kunde */}
           <div className="space-y-2">
             <Label>Kunde</Label>
-            <Select value={clientId} onValueChange={(v) => { setClientId(v); setProjectId(""); setTaskId(""); setCreatingProject(false); setCreatingTask(false) }}>
+            <Select value={clientId} onValueChange={(v) => { setClientId(v); setProjectId(""); setTaskId(""); setVermittlerBookingItemText(""); setCreatingProject(false); setCreatingTask(false) }}>
               <SelectTrigger><SelectValue placeholder="Kunde wählen..." /></SelectTrigger>
               <SelectContent>
                 {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
