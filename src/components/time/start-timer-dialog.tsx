@@ -314,6 +314,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
                       ))}
                     </SelectContent>
                   </Select>
+                  {vermittlerBookingItemText && <BudgetLine budget={bookingBudgets.get(vermittlerBookingItemText)} />}
                 </div>
               )
             })()}

@@ -306,6 +306,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
                       ))}
                     </SelectContent>
                   </Select>
+                  {vermittlerBookingItemText && <BudgetLine budget={bookingBudgets.get(vermittlerBookingItemText)} />}
                 </div>
               )
             })()}
