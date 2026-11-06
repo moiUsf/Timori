@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { ActiveTimer, Client, Project, Task, HourCode, BookingItemOption } from "@/types/database"
-import { bookingItemOptionLabel, loadBookingItemOptions } from "@/lib/booking-items"
+import { bookingItemOptionLabel, linkedVermittlerItemNames, loadBookingItemOptions } from "@/lib/booking-items"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
@@ -15,6 +15,7 @@ import { toast } from "sonner"
 import { Save, Plus, Clock } from "lucide-react"
 import { formatDuration } from "@/lib/utils"
 import { BudgetHint, BudgetLine } from "@/components/time/budget-hint"
+import { VermittlerMissingDialog } from "@/components/time/vermittler-missing-dialog"
 import { useBookingItemBudgets } from "@/lib/use-booking-item-budgets"
 
 const HOUR_CODES: { value: HourCode; label: string }[] = [
@@ -51,6 +52,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
   const [vermittlerBookingItemText, setVermittlerBookingItemText] = useState("")
   const [startedAt, setStartedAt] = useState("")
   const [saving, setSaving] = useState(false)
+  const [showVermittlerDialog, setShowVermittlerDialog] = useState(false)
   const [creatingBookingItem, setCreatingBookingItem] = useState(false)
   const [newBookingItemName, setNewBookingItemName] = useState("")
   const [creatingProject, setCreatingProject] = useState(false)
@@ -145,6 +147,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
     if (error) { toast.error("Fehler: " + error.message); return }
     setBookingItems(prev => [...prev, { ...data, kind: "own" as const }].sort((a, b) => a.name.localeCompare(b.name)))
     setBookingItemText(data.name)
+    setVermittlerBookingItemText("")
     setCreatingBookingItem(false)
     setNewBookingItemName("")
     toast.success("Buchungsposten erstellt")
@@ -184,7 +187,12 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
     toast.success("Aufgabe erstellt")
   }
 
-  async function handleSave() {
+  async function handleSave(confirmedWithoutVermittler = false) {
+    if (!confirmedWithoutVermittler && !vermittlerBookingItemText && linkedVermittlerItemNames(bookingItems, bookingItemText).length > 0) {
+      setShowVermittlerDialog(true)
+      return
+    }
+    setShowVermittlerDialog(false)
     setSaving(true)
     const { error } = await supabase.from("active_timers").update({
       project_id: projectId || null,
@@ -234,7 +242,8 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
                   return
                 }
                 setBookingItemText(v)
-                setVermittlerBookingItemText("")
+                const linked = linkedVermittlerItemNames(bookingItems, v)
+                setVermittlerBookingItemText(linked.length === 1 ? linked[0] : "")
                 setCreatingBookingItem(false)
               }}
             >
@@ -280,9 +289,7 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
             )}
             {/* Vermittler sub-dropdown */}
             {(() => {
-              const opts = bookingItems
-                .filter(b => b.kind === "own" && b.name === bookingItemText)
-                .flatMap(b => b.linkedVermittlerItemNames ?? [])
+              const opts = linkedVermittlerItemNames(bookingItems, bookingItemText)
               if (opts.length === 0) return null
               return (
                 <div className="space-y-1">
@@ -405,11 +412,18 @@ export function EditTimerDialog({ timer, open, onOpenChange, onSaved }: EditTime
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
+          <Button onClick={() => handleSave()} disabled={saving} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? "Speichert..." : "Speichern"}
           </Button>
         </DialogFooter>
+        <VermittlerMissingDialog
+          open={showVermittlerDialog}
+          onOpenChange={setShowVermittlerDialog}
+          bookingItemName={bookingItemText}
+          confirmLabel="Ohne Vermittler-BP speichern"
+          onConfirm={() => handleSave(true)}
+        />
       </DialogContent>
     </Dialog>
   )

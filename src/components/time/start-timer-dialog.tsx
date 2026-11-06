@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { Client, Project, Task, HourCode, BookingItemOption } from "@/types/database"
-import { bookingItemOptionLabel, loadBookingItemOptions } from "@/lib/booking-items"
+import { bookingItemOptionLabel, linkedVermittlerItemNames, loadBookingItemOptions } from "@/lib/booking-items"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { Plus } from "lucide-react"
 import { TimerPlay } from "@/components/icons/timer-play"
 import { BudgetHint, BudgetLine } from "@/components/time/budget-hint"
+import { VermittlerMissingDialog } from "@/components/time/vermittler-missing-dialog"
 import { useBookingItemBudgets } from "@/lib/use-booking-item-budgets"
 
 export interface TimerInitialValues {
@@ -59,6 +60,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
   const [bookingItemText, setBookingItemText] = useState("")
   const [vermittlerBookingItemText, setVermittlerBookingItemText] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showVermittlerDialog, setShowVermittlerDialog] = useState(false)
   const [creatingBookingItem, setCreatingBookingItem] = useState(false)
   const [newBookingItemName, setNewBookingItemName] = useState("")
   const [creatingProject, setCreatingProject] = useState(false)
@@ -105,9 +107,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
   // Änderung des Buchungspostens, damit ein manuelles "Keiner" bestehen bleibt.
   useEffect(() => {
     if (bookingItemsClientId !== clientId) return
-    const linked = bookingItems
-      .filter(b => b.kind === "own" && b.name === bookingItemText)
-      .flatMap(b => b.linkedVermittlerItemNames ?? [])
+    const linked = linkedVermittlerItemNames(bookingItems, bookingItemText)
     if (linked.length === 1) setVermittlerBookingItemText(current => current || linked[0])
   }, [bookingItems, bookingItemsClientId, clientId, bookingItemText])
 
@@ -149,6 +149,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
     if (error) { toast.error("Fehler: " + error.message); return }
     setBookingItems(prev => [...prev, { ...data, kind: "own" as const }].sort((a, b) => a.name.localeCompare(b.name)))
     setBookingItemText(data.name)
+    setVermittlerBookingItemText("")
     setCreatingBookingItem(false)
     setNewBookingItemName("")
     toast.success("Buchungsposten erstellt")
@@ -187,8 +188,13 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
     toast.success("Aufgabe erstellt")
   }
 
-  async function handleStart() {
+  async function handleStart(confirmedWithoutVermittler = false) {
     if (!clientId) { toast.error("Bitte Kunde auswählen"); return }
+    if (!confirmedWithoutVermittler && !vermittlerBookingItemText && linkedVermittlerItemNames(bookingItems, bookingItemText).length > 0) {
+      setShowVermittlerDialog(true)
+      return
+    }
+    setShowVermittlerDialog(false)
     setLoading(true)
     const { error } = await supabase.from("active_timers").insert({
       user_id: userId,
@@ -291,9 +297,7 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
             )}
             {/* Vermittler sub-dropdown */}
             {(() => {
-              const opts = bookingItems
-                .filter(b => b.kind === "own" && b.name === bookingItemText)
-                .flatMap(b => b.linkedVermittlerItemNames ?? [])
+              const opts = linkedVermittlerItemNames(bookingItems, bookingItemText)
               if (opts.length === 0) return null
               return (
                 <div className="space-y-1">
@@ -442,11 +446,18 @@ export function StartTimerDialog({ userId, open, onOpenChange, onCreated, initia
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button onClick={handleStart} disabled={loading} className="gap-2">
+          <Button onClick={() => handleStart()} disabled={loading} className="gap-2">
             <TimerPlay className="h-4 w-4 max-md:h-6 max-md:w-6" />
             {loading ? "Startet..." : "Timer starten"}
           </Button>
         </DialogFooter>
+        <VermittlerMissingDialog
+          open={showVermittlerDialog}
+          onOpenChange={setShowVermittlerDialog}
+          bookingItemName={bookingItemText}
+          confirmLabel="Ohne Vermittler-BP starten"
+          onConfirm={() => handleStart(true)}
+        />
       </DialogContent>
     </Dialog>
   )

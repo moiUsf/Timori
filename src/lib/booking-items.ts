@@ -104,6 +104,13 @@ export async function loadBookingItemOptions(
   return options
 }
 
+/** Namen der Vermittler-Buchungsposten, die mit dem eigenen Buchungsposten `bookingItemName` verknüpft sind. */
+export function linkedVermittlerItemNames(items: BookingItemOption[], bookingItemName: string): string[] {
+  return items
+    .filter((item) => item.kind === "own" && item.name === bookingItemName)
+    .flatMap((item) => item.linkedVermittlerItemNames ?? [])
+}
+
 export function bookingItemOptionLabel(item: BookingItemOption): string {
   if (item.kind === "vermittler" && item.vermittlerClientName) {
     return `${item.name} (${item.vermittlerClientName})`

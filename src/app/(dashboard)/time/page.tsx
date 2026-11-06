@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useTranslations } from "next-intl"
 import { createClient } from "@/lib/supabase/client"
 import type { TimeEntry, Client, Project, Task, BookingItemOption } from "@/types/database"
-import { bookingItemOptionLabel, loadBookingItemOptions } from "@/lib/booking-items"
+import { bookingItemOptionLabel, linkedVermittlerItemNames, loadBookingItemOptions } from "@/lib/booking-items"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -21,6 +21,7 @@ import { TaetigkeitsberichtDialog } from "@/components/reports/taetigkeitsberich
 import { MultiSelectFilter } from "@/components/ui/multi-select-filter"
 import { StartTimerDialog, type TimerInitialValues } from "@/components/time/start-timer-dialog"
 import { BudgetHint, BudgetLine } from "@/components/time/budget-hint"
+import { VermittlerMissingDialog } from "@/components/time/vermittler-missing-dialog"
 import { useBookingItemBudgets } from "@/lib/use-booking-item-budgets"
 
 type TaskWithBooking = Task & { default_booking_item?: { id: string; name: string } | null }
@@ -72,6 +73,7 @@ export default function TimePage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<TaskWithBooking[]>([])
   const [bookingItems, setBookingItems] = useState<BookingItemOption[]>([])
+  const [bookingItemsClientId, setBookingItemsClientId] = useState("")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showForm, setShowForm] = useState(false)
   const formRef = useRef<HTMLDivElement>(null)
@@ -83,6 +85,7 @@ export default function TimePage() {
   const [taskSearch, setTaskSearch] = useState("")
   const [overlapConflicts, setOverlapConflicts] = useState<EntryWithRelations[]>([])
   const [showOverlapDialog, setShowOverlapDialog] = useState(false)
+  const [showVermittlerDialog, setShowVermittlerDialog] = useState(false)
   const [reportDialogOpen, setReportDialogOpen] = useState(false)
   const [creatingBookingItem, setCreatingBookingItem] = useState(false)
   const [newBookingItemName, setNewBookingItemName] = useState("")
@@ -153,8 +156,21 @@ export default function TimePage() {
     ]).then(([pRes, bookingOptions]) => {
       setProjects(pRes.data ?? [])
       setBookingItems(bookingOptions)
+      setBookingItemsClientId(form.client_id)
     })
   }, [form.client_id, supabase, userId])
+
+  // Genau ein verknüpfter Vermittler-BP: automatisch vorauswählen. Läuft nur bei Änderung des
+  // Buchungspostens (manuelles "Keiner" bleibt) und lässt bestehende Einträge unverändert.
+  useEffect(() => {
+    if (bookingItemsClientId !== form.client_id) return
+    if (editingEntry && form.booking_item_text === (editingEntry.booking_item_text ?? "")) return
+    const linked = linkedVermittlerItemNames(bookingItems, form.booking_item_text)
+    if (linked.length === 1) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reagiert auf nachgeladene Optionen (z. B. beim Kopieren)
+      setForm(f => f.vermittler_booking_item_text ? f : { ...f, vermittler_booking_item_text: linked[0] })
+    }
+  }, [bookingItems, bookingItemsClientId, form.client_id, form.booking_item_text, editingEntry])
 
   // Returns task data without touching state — lets callers batch setTasks + setForm together
   const fetchTasksData = useCallback(async (clientId: string, projectId: string): Promise<TaskWithBooking[]> => {
@@ -292,7 +308,7 @@ export default function TimePage() {
     }).select("id, name").single()
     if (error) { toast.error("Fehler: " + error.message); return }
     setBookingItems(prev => [...prev, { ...data, kind: "own" as const }].sort((a, b) => a.name.localeCompare(b.name)))
-    setForm(f => ({ ...f, booking_item_text: data.name }))
+    setForm(f => ({ ...f, booking_item_text: data.name, vermittler_booking_item_text: "" }))
     setBookingItemAutoSet(false)
     setCreatingBookingItem(false)
     setNewBookingItemName("")
@@ -349,6 +365,9 @@ export default function TimePage() {
       ...f,
       task_id: taskId,
       booking_item_text: defaultBooking ? defaultBooking.name : f.booking_item_text,
+      vermittler_booking_item_text: defaultBooking && defaultBooking.name !== f.booking_item_text
+        ? ""
+        : f.vermittler_booking_item_text,
     }))
     setBookingItemAutoSet(!!defaultBooking)
     setTaskSearch("")
@@ -386,6 +405,7 @@ export default function TimePage() {
     setShowForm(false)
     setEditingEntry(null)
     setShowOverlapDialog(false)
+    setShowVermittlerDialog(false)
     loadEntries()
   }
 
@@ -396,6 +416,15 @@ export default function TimePage() {
       return
     }
 
+    if (!form.vermittler_booking_item_text && linkedVermittlerItemNames(bookingItems, form.booking_item_text).length > 0) {
+      setShowVermittlerDialog(true)
+      return
+    }
+
+    await saveWithOverlapCheck()
+  }
+
+  async function saveWithOverlapCheck() {
     let overlapQuery = supabase
       .from("time_entries")
       .select("*, client:clients(*), project:projects(*), task:tasks(*)")
@@ -412,6 +441,7 @@ export default function TimePage() {
 
     if (conflicts && conflicts.length > 0) {
       setOverlapConflicts(conflicts as EntryWithRelations[])
+      setShowVermittlerDialog(false)
       setShowOverlapDialog(true)
       return
     }
@@ -601,7 +631,7 @@ export default function TimePage() {
                   <Select value={form.client_id}
                     onValueChange={(v) => {
                       const selectedClient = clients.find(c => c.id === v)
-                      setForm({ ...form, client_id: v, project_id: "", task_id: "", remote: selectedClient?.default_remote ?? false })
+                      setForm({ ...form, client_id: v, project_id: "", task_id: "", vermittler_booking_item_text: "", remote: selectedClient?.default_remote ?? false })
                       setBookingItemAutoSet(false)
                       setProjectSearch("")
                       setTaskSearch("")
@@ -677,9 +707,7 @@ export default function TimePage() {
                   )}
                   {/* Vermittler sub-dropdown — only when selected own item has linked Vermittler items */}
                   {(() => {
-                    const opts = bookingItems
-                      .filter(b => b.kind === "own" && b.name === form.booking_item_text)
-                      .flatMap(b => b.linkedVermittlerItemNames ?? [])
+                    const opts = linkedVermittlerItemNames(bookingItems, form.booking_item_text)
                     if (opts.length === 0) return null
                     return (
                       <div className="space-y-1">
@@ -1239,6 +1267,14 @@ export default function TimePage() {
           )}
         </CardContent>
       </Card>
+
+      <VermittlerMissingDialog
+        open={showVermittlerDialog}
+        onOpenChange={setShowVermittlerDialog}
+        bookingItemName={form.booking_item_text}
+        confirmLabel="Ohne Vermittler-BP speichern"
+        onConfirm={saveWithOverlapCheck}
+      />
 
       <Dialog open={showOverlapDialog} onOpenChange={setShowOverlapDialog}>
         <DialogContent className="sm:max-w-md">
